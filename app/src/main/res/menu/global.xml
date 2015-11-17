@@ -1,0 +1,9 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_server" android:title="@string/action_server_name"
+        android:orderInCategory="100" app:showAsAction="never" />
+    <item android:id="@+id/action_client" android:title="@string/action_client_name"
+        android:orderInCategory="100" app:showAsAction="never" />
+    <item android:id="@+id/action_sending" android:title="Sending Data"
+        android:orderInCategory="100" app:showAsAction="never" />
+</menu>
