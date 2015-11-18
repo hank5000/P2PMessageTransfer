@@ -1,6 +1,7 @@
 package com.via.cloudwatch;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.os.Handler;
@@ -10,6 +11,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,10 +21,14 @@ import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
 
 import android.view.WindowManager;
+import android.widget.ImageButton;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 
+import com.utils.CommunicationChannel;
 import com.utils.QueryToServer;
+import com.utils.SendingLocalVideoThread;
 import com.utils.VideoRecvCallback;
 import com.via.libnice;
 
@@ -47,14 +53,49 @@ public class MainActivity extends ActionBarActivity
 
     libnice mNice = null;
     int     mStreamId = -1;
-    SurfaceView videoSurfaceView1 = null;
-    SurfaceView videoSurfaceView2 = null;
-    SurfaceView videoSurfaceView3 = null;
-    SurfaceView videoSurfaceView4 = null;
+
+    SurfaceView[] videoSurfaceViews = new SurfaceView[4];
+    ImageButton[] addBtns = new ImageButton[4];
+    ImageButton[] rmBtns  = new ImageButton[4];
+    RelativeLayout[] rLayouts = new RelativeLayout[4];
+    SendingLocalVideoThread[] sendingThreads = new SendingLocalVideoThread[4];
+    VideoRecvCallback[] videoRecvCallbacks = new VideoRecvCallback[4];
+
+
+    void initButtonAndSurfaceView() {
+
+        rLayouts[0] = (RelativeLayout) findViewById(R.id.relate1);
+        rLayouts[1] = (RelativeLayout) findViewById(R.id.relate2);
+        rLayouts[2] = (RelativeLayout) findViewById(R.id.relate3);
+        rLayouts[3] = (RelativeLayout) findViewById(R.id.relate4);
+
+        videoSurfaceViews[0] = (SurfaceView) findViewById(R.id.surfaceView1);
+        videoSurfaceViews[1] = (SurfaceView) findViewById(R.id.surfaceView2);
+        videoSurfaceViews[2] = (SurfaceView) findViewById(R.id.surfaceView3);
+        videoSurfaceViews[3] = (SurfaceView) findViewById(R.id.surfaceView4);
+
+        addBtns[0] = (ImageButton) findViewById(R.id.addBtn1);
+        addBtns[1] = (ImageButton) findViewById(R.id.addBtn2);
+        addBtns[2] = (ImageButton) findViewById(R.id.addBtn3);
+        addBtns[3] = (ImageButton) findViewById(R.id.addBtn4);
+
+
+
+        rmBtns[0] = (ImageButton) findViewById(R.id.rmBtn1);
+        rmBtns[1] = (ImageButton) findViewById(R.id.rmBtn2);
+        rmBtns[2] = (ImageButton) findViewById(R.id.rmBtn3);
+        rmBtns[3] = (ImageButton) findViewById(R.id.rmBtn4);
+
+        for(int i=0;i<4;i++) {
+            addBtns[i].setOnLongClickListener(requestLiveView);
+            rmBtns[i].setOnLongClickListener(requestLiveView);
+        }
+    }
+
     MainActivity instance = this;
     String localSdp = null;
-    boolean bSourceSide = false;
     Handler handler = new Handler();
+    CommunicationChannel msgChannel = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,10 +112,13 @@ public class MainActivity extends ActionBarActivity
                 R.id.navigation_drawer,
                 (DrawerLayout) findViewById(R.id.drawer_layout));
 
-        videoSurfaceView1 = (SurfaceView) findViewById(R.id.surfaceView1);
-        videoSurfaceView2 = (SurfaceView) findViewById(R.id.surfaceView2);
-        videoSurfaceView3 = (SurfaceView) findViewById(R.id.surfaceView3);
-        videoSurfaceView4 = (SurfaceView) findViewById(R.id.surfaceView4);
+        /*
+            set all button/view/layout to instance.
+         */
+        initButtonAndSurfaceView();
+
+
+
 
         mNice = new libnice();
         mNice.init();
@@ -83,27 +127,23 @@ public class MainActivity extends ActionBarActivity
         mNice.setControllingMode(0);
         mStreamId = mNice.addStream("HankWu",5);
 
-        int forComponentIndex = 1;
-        mNice.registerReceiveCallback(new libnice.ReceiveCallback(){
-            @Override
-            public void onMessage(final byte[] input) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(instance , new String(input), Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-        }, mStreamId, forComponentIndex);
 
+        // Component 1 is using for message transfer
+        int forComponentIndex = 1;
+        msgChannel = new CommunicationChannel(instance,mNice,mStreamId,forComponentIndex);
+        mNice.registerReceiveCallback(msgChannel, mStreamId, forComponentIndex);
         forComponentIndex = 2;
-        mNice.registerReceiveCallback(new VideoRecvCallback(videoSurfaceView1), mStreamId, forComponentIndex);
+        videoRecvCallbacks[0] = new VideoRecvCallback(videoSurfaceViews[0]);
+        mNice.registerReceiveCallback(videoRecvCallbacks[0], mStreamId, forComponentIndex);
         forComponentIndex = 3;
-        mNice.registerReceiveCallback(new VideoRecvCallback(videoSurfaceView2), mStreamId, forComponentIndex);
+        videoRecvCallbacks[1] = new VideoRecvCallback(videoSurfaceViews[1]);
+        mNice.registerReceiveCallback(videoRecvCallbacks[1], mStreamId, forComponentIndex);
         forComponentIndex = 4;
-        mNice.registerReceiveCallback(new VideoRecvCallback(videoSurfaceView3), mStreamId, forComponentIndex);
+        videoRecvCallbacks[2] = new VideoRecvCallback(videoSurfaceViews[2]);
+        mNice.registerReceiveCallback(videoRecvCallbacks[2], mStreamId, forComponentIndex);
         forComponentIndex = 5;
-        mNice.registerReceiveCallback(new VideoRecvCallback(videoSurfaceView4), mStreamId, forComponentIndex);
+        videoRecvCallbacks[3] = new VideoRecvCallback(videoSurfaceViews[3]);
+        mNice.registerReceiveCallback(videoRecvCallbacks[3], mStreamId, forComponentIndex);
 
         mNice.registerStateObserver(new libnice.StateObserver() {
             @Override
@@ -111,7 +151,7 @@ public class MainActivity extends ActionBarActivity
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(instance , "Candidate Gathering Done Stream["+i+"]", Toast.LENGTH_SHORT).show();
+                        //Toast.makeText(instance , "Candidate Gathering Done Stream["+i+"]", Toast.LENGTH_SHORT).show();
                     }
                 });
             }
@@ -121,7 +161,9 @@ public class MainActivity extends ActionBarActivity
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(instance , "Stream["+i+"]Component["+i1+"]:"+libnice.StateObserver.STATE_TABLE[i2], Toast.LENGTH_SHORT).show();
+                        if(libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready")||libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("fail")) {
+                            Toast.makeText(instance, "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2], Toast.LENGTH_SHORT).show();
+                        }
                     }
                 });
             }
@@ -463,5 +505,110 @@ public class MainActivity extends ActionBarActivity
             }
         }
     });
+
+    View.OnLongClickListener requestLiveView = new View.OnLongClickListener() {
+        @Override
+        public boolean onLongClick(View v) {
+            String msg = "";
+            String state = "";
+            int number = -1;
+            switch (v.getId()) {
+                case R.id.addBtn1 :
+                    msg = "addbtn1";
+                    state = "RUN";
+                    number = 1;
+                    break;
+                case R.id.addBtn2 :
+                    msg = "addbtn2";
+                    state = "RUN";
+                    number = 2;
+                    break;
+                case R.id.addBtn3 :
+                    msg = "addbtn3";
+                    state = "RUN";
+                    number = 3;
+                    break;
+                case R.id.addBtn4 :
+                    msg = "addbtn4";
+                    state = "RUN";
+                    number = 4;
+                    break;
+                case R.id.rmBtn1 :
+                    msg = "rmBtn1";
+                    state = "STOP";
+                    number = 1;
+                    break;
+                case R.id.rmBtn2 :
+                    msg = "rmBtn2";
+                    state = "STOP";
+                    number = 2;
+                    break;
+                case R.id.rmBtn3 :
+                    msg = "rmBtn3";
+                    state = "STOP";
+                    number = 3;
+                    break;
+                case R.id.rmBtn4 :
+                    msg = "rmBtn4";
+                    state = "STOP";
+                    number = 4;
+                    break;
+            }
+            showToast("VIDEO:"+state+":"+number+":");
+            msgChannel.sendMessage("VIDEO:"+state+":"+number+":");
+
+            if(state.equalsIgnoreCase("STOP")) {
+                if(videoRecvCallbacks[number-1].isStart()) {
+                    videoRecvCallbacks[number - 1].setStop();
+                }
+            }
+
+            final String fstate = state;
+            final int    fnumber = number;
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    changeState(fstate,fnumber-1);
+                }
+            });
+            Toast.makeText(instance,msg,Toast.LENGTH_SHORT).show();
+
+            return false;
+        }
+    };
+
+    void changeState(String state,int number){
+        if (state.equalsIgnoreCase("RUN")) {
+            addBtns[number].setVisibility(View.INVISIBLE);
+            rmBtns[number].setVisibility(View.VISIBLE);
+        } else if (state.equalsIgnoreCase("STOP")) {
+            addBtns[number].setVisibility(View.VISIBLE);
+            rmBtns[number].setVisibility(View.INVISIBLE);
+        }
+    }
+
+    public void createSendingThread(int Stream_id,int onChannel) {
+        if(sendingThreads[onChannel-1]==null) {
+            showToast("create Sending Thread");
+            Log.d("hank","Create sending Thread");
+            sendingThreads[onChannel-1] = new SendingLocalVideoThread(mNice,Stream_id,onChannel,"/mnt/sata/H264_2M.mp4");
+            sendingThreads[onChannel-1].start();
+        }
+    }
+
+    public void stopSendingThread(int Stream_id,int onChannel) {
+        if(sendingThreads[onChannel-1]!=null){
+            sendingThreads[onChannel-1].setStop();
+            sendingThreads[onChannel-1].interrupt();
+            try {
+                sendingThreads[onChannel-1].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            sendingThreads[onChannel-1] = null;
+            showToast("Stop sending Thread "+onChannel);
+        }
+    }
 
 }

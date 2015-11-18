@@ -14,28 +14,124 @@
             android:layout_height="fill_parent"
             android:layout_weight="1"
             android:orientation="horizontal">
-            <SurfaceView android:id="@+id/surfaceView1"
-                android:layout_height="fill_parent"
+            <RelativeLayout android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
-                android:layout_weight="1"/>
-            <SurfaceView android:id="@+id/surfaceView2"
-                android:layout_height="fill_parent"
+                android:padding="2dp"
+                android:layout_weight="1"
+                android:id="@+id/relate1">
+                <SurfaceView android:id="@+id/surfaceView1"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent" />
+
+                <ImageButton android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:layout_centerInParent="true"
+                    android:adjustViewBounds="true"
+                    android:background="@drawable/buttonback1"
+                    android:id="@+id/addBtn1"
+                    android:src="@drawable/plus"
+                    android:clickable="true"
+                    android:scaleType="centerInside" />
+
+                <ImageButton android:layout_height="40dp"
+                    android:layout_width="40dp"
+                    android:background="@null"
+                    android:src="@drawable/remove"
+                    android:scaleType="centerInside"
+                    android:layout_alignParentTop="true"
+                    android:layout_alignParentEnd="true"
+                    android:id="@+id/rmBtn1"
+                    android:visibility="invisible"/>
+            </RelativeLayout>
+            <RelativeLayout android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
-                android:layout_weight="1"/>
+                android:padding="2dp"
+                android:layout_weight="1"
+                android:id="@+id/relate2">
+                <SurfaceView android:id="@+id/surfaceView2"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent" />
+                <ImageButton android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:layout_centerInParent="true"
+                    android:adjustViewBounds="true"
+                    android:background="@drawable/buttonback1"
+                    android:id="@+id/addBtn2"
+                    android:src="@drawable/plus"
+                    android:clickable="true"
+                    android:scaleType="centerInside" />
+                <ImageButton android:layout_height="40dp"
+                    android:layout_width="40dp"
+                    android:background="@null"
+                    android:src="@drawable/remove"
+                    android:scaleType="centerInside"
+                    android:layout_alignParentTop="true"
+                    android:layout_alignParentEnd="true"
+                    android:id="@+id/rmBtn2"
+                    android:visibility="invisible"/>
+
+            </RelativeLayout>
         </LinearLayout>
 
         <LinearLayout android:layout_width="fill_parent"
             android:layout_height="fill_parent"
             android:layout_weight="1"
             android:orientation="horizontal">
-            <SurfaceView android:id="@+id/surfaceView3"
-                android:layout_height="fill_parent"
+            <RelativeLayout android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
-                android:layout_weight="1"/>
-            <SurfaceView android:id="@+id/surfaceView4"
-                android:layout_height="fill_parent"
+                android:padding="2dp"
+                android:layout_weight="1"
+                android:id="@+id/relate3">
+                <SurfaceView android:id="@+id/surfaceView3"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent" />
+                <ImageButton android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:layout_centerInParent="true"
+                    android:adjustViewBounds="true"
+                    android:background="@drawable/buttonback1"
+                    android:id="@+id/addBtn3"
+                    android:src="@drawable/plus"
+                    android:clickable="true"
+                    android:scaleType="centerInside" />
+                <ImageButton android:layout_height="40dp"
+                    android:layout_width="40dp"
+                    android:background="@null"
+                    android:src="@drawable/remove"
+                    android:scaleType="centerInside"
+                    android:layout_alignParentTop="true"
+                    android:layout_alignParentEnd="true"
+                    android:id="@+id/rmBtn3"
+                    android:visibility="invisible" />
+
+            </RelativeLayout>
+            <RelativeLayout android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
-                android:layout_weight="1"/>
+                android:padding="2dp"
+                android:layout_weight="1"
+                android:id="@+id/relate4">
+                <SurfaceView android:id="@+id/surfaceView4"
+                    android:layout_height="fill_parent"
+                    android:layout_width="fill_parent" />
+                <ImageButton android:layout_height="fill_parent"
+                    android:layout_width="fill_parent"
+                    android:layout_centerInParent="true"
+                    android:adjustViewBounds="true"
+                    android:background="@drawable/buttonback1"
+                    android:id="@+id/addBtn4"
+                    android:src="@drawable/plus"
+                    android:clickable="true"
+                    android:scaleType="centerInside" />
+                <ImageButton android:layout_height="40dp"
+                    android:layout_width="40dp"
+                    android:background="@null"
+                    android:src="@drawable/remove"
+                    android:scaleType="centerInside"
+                    android:layout_alignParentTop="true"
+                    android:layout_alignParentEnd="true"
+                    android:id="@+id/rmBtn4"
+                    android:visibility="invisible"/>
+            </RelativeLayout>
         </LinearLayout>
     </LinearLayout>
 

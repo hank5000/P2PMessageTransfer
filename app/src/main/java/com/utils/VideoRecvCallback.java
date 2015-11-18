@@ -44,6 +44,25 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
     	Log.d(TAG,msg);
     }
 
+    public boolean isStart() {
+        return bVideo;
+    }
+
+    public void setStop() {
+        bVideo = false;
+
+        if(vt!=null) {
+            vt.setStop();
+            vt.interrupt();
+            try {
+                vt.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            vt = null;
+        }
+    }
+
     @Override
 	public void onMessage(byte[] msg) {
     	
