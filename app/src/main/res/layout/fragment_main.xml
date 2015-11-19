@@ -1,13 +1,29 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:background="@android:color/white"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent"
+    android:orientation="vertical"
     tools:context=".MainActivity$PlaceholderFragment">
 
-    <TextView android:id="@+id/section_label" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+    <!--<TextView android:id="@+id/section_label" android:layout_width="wrap_content"-->
+    <!--android:layout_height="wrap_content"-->
+    <!--android:text="LOG IN"-->
+    <!--android:textColor="@android:color/white"/>-->
+
+    <ImageButton
+        android:id="@+id/connectServerBtn"
+        android:layout_width="50dp"
+    android:layout_height="50dp"
+    android:scaleType="centerInside"
+    android:src="@drawable/server" />
+
+    <ImageButton android:layout_height="50dp"
+        android:layout_width="50dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/client"
+        android:id="@+id/connectClientBtn"
+        android:layout_below="@id/connectServerBtn"
+        />
 
 </RelativeLayout>

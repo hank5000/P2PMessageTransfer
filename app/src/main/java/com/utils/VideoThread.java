@@ -8,50 +8,57 @@ import android.view.Surface;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+
 /**
  * Created by HankWu_Office on 2015/8/20.
  */
 public class VideoThread extends Thread {
     final static String TAG = "libnice-vt";
 
-    byte[] inputStreamTmp = new byte[1024*1024];
-    ByteBuffer rawDataCollectBuffer = ByteBuffer.allocate(1024*1024*10);
-    byte[] dst  = new byte[1024*1024];
+    byte[] inputStreamTmp = new byte[1024 * 1024];
+    ByteBuffer rawDataCollectBuffer = ByteBuffer.allocate(1024 * 1024 * 10);
+    byte[] dst = new byte[1024 * 1024];
     private MediaCodec decoder;
     private Surface surface;
     private InputStream is;
     private boolean bStart = true;
     VideoDisplayThread vdt = null;
     public boolean bIsEnd = false;
+    public void setRender(boolean b) {
+        if(vdt!=null) {
+            vdt.setRender(b);
+        }
+    }
 
     public void setStop() {
         bStart = false;
     }
 
     String mMime;
-    int    mWidth;
-    int    mHeight;
+    int mWidth;
+    int mHeight;
     String mSPS;
     String mPPS;
     int collectLen = 0;
+
     public byte[] hexStringToByteArray(String s) {
         int len = s.length();
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+                    + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
     }
 
-    public VideoThread(Surface surf,String mime,int width,int height,String sps,String pps,InputStream inputStream) {
-        this.surface  = surf;
-        this.mMime    = mime;
-        this.mWidth   = width;
-        this.mHeight  = height;
-        this.mSPS     = sps;
-        this.mPPS     = pps;
-        this.is       = inputStream;
+    public VideoThread(Surface surf, String mime, int width, int height, String sps, String pps, InputStream inputStream) {
+        this.surface = surf;
+        this.mMime = mime;
+        this.mWidth = width;
+        this.mHeight = height;
+        this.mSPS = sps;
+        this.mPPS = pps;
+        this.is = inputStream;
     }
 
     final static String MediaFormat_SPS = "csd-0";
@@ -69,12 +76,12 @@ public class VideoThread extends Thread {
             format.setByteBuffer(MediaFormat_PPS, ByteBuffer.wrap(hexStringToByteArray(mPPS)));
 
             decoder = MediaCodec.createDecoderByType(mMime);
-            if(decoder == null) {
+            if (decoder == null) {
                 Log.d(TAG, "This device cannot support codec :" + mMime);
             }
             decoder.configure(format, surface, null, 0);
         } catch (Exception e) {
-            Log.d(TAG,"Create Decoder Fail, because "+e);
+            Log.d(TAG, "Create Decoder Fail, because " + e);
             //Log.d(TAG, "This device cannot support codec :" + mMime);
         }
         if (decoder == null) {
@@ -92,58 +99,58 @@ public class VideoThread extends Thread {
         int firstNalu = 0;
         int secondNalu = 0;
 
-        if(vdt == null) {
-            vdt = new VideoDisplayThread(decoder,outputBuffers,info);
+        if (vdt == null) {
+            vdt = new VideoDisplayThread(decoder, outputBuffers, info);
             vdt.start();
         }
 
-        while (!Thread.interrupted() && bStart && decoder!=null ) {
+        while (!Thread.interrupted() && bStart && decoder != null) {
             int inIndex = decoder.dequeueInputBuffer(10000);
             if (inIndex > 0) {
 
-                while (!Thread.interrupted() && bStart && decoder!=null && is!=null) {
+                while (!Thread.interrupted() && bStart && decoder != null && is != null) {
                     try {
                         readSize = is.read(inputStreamTmp);
-                        if(readSize>0) {
+                        if (readSize > 0) {
                             rawDataCollectBuffer.put(inputStreamTmp, 0, readSize);
                         }
                     } catch (Exception e) {
-                        Log.d(TAG,"inputstream cannot read : "+e);
+                        Log.d(TAG, "inputstream cannot read : " + e);
 
-                        if(!bStart) {
+                        if (!bStart) {
                             break;
                         }
                     }
 
-                    firstNalu = findNalu(0,rawDataCollectBuffer);
-                    
+                    firstNalu = findNalu(0, rawDataCollectBuffer);
+
                     //Log.d(TAG,"firstNalue : "+ firstNalu +"rawDataCollectBuffer :" +rawDataCollectBuffer.get(0)+rawDataCollectBuffer.get(1)+rawDataCollectBuffer.get(2)+rawDataCollectBuffer.get(3));
 
-                    if(firstNalu!=-1) {
-                    	secondNalu = findNalu(firstNalu+3,rawDataCollectBuffer);
+                    if (firstNalu != -1) {
+                        secondNalu = findNalu(firstNalu + 3, rawDataCollectBuffer);
 
-                    	if(secondNalu!=-1 && secondNalu > firstNalu ) {
-                    		rawDataCollectBuffer.flip();
-                    		rawDataCollectBuffer.position(firstNalu);
-                    		
-                        	//Log.d(TAG,"FirstNALU :"+firstNalu+" ,SecondNALU :"+secondNalu+"size :"+ (secondNalu-firstNalu)+", rawDataCollectBuffer remaining:"+rawDataCollectBuffer.remaining());
+                        if (secondNalu != -1 && secondNalu > firstNalu) {
+                            rawDataCollectBuffer.flip();
+                            rawDataCollectBuffer.position(firstNalu);
 
-                    		rawDataCollectBuffer.get(dst, 0, secondNalu-firstNalu);
-                    		rawDataCollectBuffer.compact();
-                    		
-                    		int nalu_unit_type = (dst[4] & 0x1F);
-                    		//Log.d(TAG,"NALU TYPE :" +nalu_unit_type);
-                    		//if(nalu_unit_type!=8 && nalu_unit_type!=7 && nalu_unit_type!=6)
-                    		{
-	                    		ByteBuffer buffer = inputBuffers[inIndex];
-	                    		buffer.clear();
-	                    		buffer.put(dst, 0, secondNalu-firstNalu);
-	                    		decoder.queueInputBuffer(inIndex, 0, secondNalu-firstNalu, 0, 0);
-	                    		break;
-                    		}
-                    	}
+                            //Log.d(TAG,"FirstNALU :"+firstNalu+" ,SecondNALU :"+secondNalu+"size :"+ (secondNalu-firstNalu)+", rawDataCollectBuffer remaining:"+rawDataCollectBuffer.remaining());
+
+                            rawDataCollectBuffer.get(dst, 0, secondNalu - firstNalu);
+                            rawDataCollectBuffer.compact();
+
+                            int nalu_unit_type = (dst[4] & 0x1F);
+                            //Log.d(TAG,"NALU TYPE :" +nalu_unit_type);
+                            //if(nalu_unit_type!=8 && nalu_unit_type!=7 && nalu_unit_type!=6)
+                            {
+                                ByteBuffer buffer = inputBuffers[inIndex];
+                                buffer.clear();
+                                buffer.put(dst, 0, secondNalu - firstNalu);
+                                decoder.queueInputBuffer(inIndex, 0, secondNalu - firstNalu, 0, 0);
+                                break;
+                            }
+                        }
                     } else {
-                    	Log.d(TAG,"Something wrong");
+                        Log.d(TAG, "Something wrong");
                     }
 
                 }
@@ -169,14 +176,20 @@ public class VideoThread extends Thread {
         MediaCodec decoder = null;
         ByteBuffer[] outputBuffers = null;
         MediaCodec.BufferInfo info = null;
-        public VideoDisplayThread(MediaCodec codec,ByteBuffer[] bbs, MediaCodec.BufferInfo bi) {
+        boolean bRender = true;
+
+        public void setRender(boolean b) {
+            bRender = b;
+        }
+
+        public VideoDisplayThread(MediaCodec codec, ByteBuffer[] bbs, MediaCodec.BufferInfo bi) {
             this.decoder = codec;
             this.outputBuffers = bbs;
             this.info = bi;
         }
 
         public void run() {
-            while (bStart && decoder!=null ) {
+            while (bStart && decoder != null) {
                 //Log.d("libnice", "coming");
                 int outIndex = this.decoder.dequeueOutputBuffer(this.info, 10000);
                 switch (outIndex) {
@@ -201,28 +214,28 @@ public class VideoThread extends Thread {
                             e.printStackTrace();
                         }
                         //Log.d("libnice", "coming2");
-                        this.decoder.releaseOutputBuffer(outIndex, true);
+                        this.decoder.releaseOutputBuffer(outIndex, bRender);
                         break;
                 }
             }
         }
     }
-    
-    int findNalu(int offset,ByteBuffer bb) {
-    	int limit = bb.limit();
-    	int ret = -1;
-    	int currentPos = bb.position();
-    	
-    	if(offset > currentPos) {
-    		return ret;
-    	}
-    	
-    	for(int i=offset;i<(currentPos-4);i++) {
-	    	if ((bb.get(i)==0 && bb.get(i+1) == 0 && bb.get(i+2) == 0 && bb.get(i+3) == 1 )) {
-	    		return i;
-	    	}
-    	}
-    	return ret;
+
+    int findNalu(int offset, ByteBuffer bb) {
+        int limit = bb.limit();
+        int ret = -1;
+        int currentPos = bb.position();
+
+        if (offset > currentPos) {
+            return ret;
+        }
+
+        for (int i = offset; i < (currentPos - 4); i++) {
+            if ((bb.get(i) == 0 && bb.get(i + 1) == 0 && bb.get(i + 2) == 0 && bb.get(i + 3) == 1)) {
+                return i;
+            }
+        }
+        return ret;
     }
 
 }

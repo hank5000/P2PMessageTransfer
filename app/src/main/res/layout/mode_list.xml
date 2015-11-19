@@ -1,0 +1,34 @@
+<!-- As the main content view, the view below consumes the entire
+     space available using match_parent in both dimensions. -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/container"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="#A0FFFFFF"
+    android:orientation="horizontal">
+
+    <ImageButton
+        android:id="@+id/menu_camera"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:background="@drawable/buttonback1"
+        android:src="@drawable/camera_white" />
+
+    <ImageButton
+        android:id="@+id/menu_play"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:background="@drawable/buttonback1"
+
+        android:src="@drawable/play_white" />
+
+    <ImageButton
+        android:id="@+id/menu_remove"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:background="@drawable/buttonback1"
+
+        android:src="@drawable/remove_white" />
+
+</LinearLayout>

@@ -14,15 +14,16 @@ import java.nio.ByteBuffer;
 public class SendingLocalVideoThread extends Thread {
     libnice mAgent = null;
     int mStreamId = -1;
-    int mCompId   = -1;
+    int mCompId = -1;
     String path = "";
-    int DEFAULT_DIVIDED_SIZE = 1024*1024;
-    ByteBuffer naluBuffer = ByteBuffer.allocateDirect(1024*1024);
+    int DEFAULT_DIVIDED_SIZE = 1024 * 1024;
+    ByteBuffer naluBuffer = ByteBuffer.allocateDirect(1024 * 1024);
     boolean bStop = false;
-    public SendingLocalVideoThread(libnice nice,int stream_id,int component_id, String p) {
+
+    public SendingLocalVideoThread(libnice nice, int stream_id, int component_id, String p) {
         mAgent = nice;
         mStreamId = stream_id;
-        mCompId = component_id+1;
+        mCompId = component_id + 1;
         path = p;
         bStop = false;
     }
@@ -43,29 +44,28 @@ public class SendingLocalVideoThread extends Thread {
     public void run() {
         initMediaExtractor(path);
 
-        while(!bStop){
+        while (!bStop) {
             // TODO Auto-generated method stub
             int naluSize = me.readSampleData(naluBuffer, 0);
 
             int divideSize = DEFAULT_DIVIDED_SIZE;
             int sentSize = 0;
 
-            if(naluSize > 0)
-            {
-                for(;;) {
-                    if((naluSize-sentSize) < divideSize) {
-                        divideSize = naluSize-sentSize;
+            if (naluSize > 0) {
+                for (; ; ) {
+                    if ((naluSize - sentSize) < divideSize) {
+                        divideSize = naluSize - sentSize;
                     }
 
                     naluBuffer.position(sentSize);
-                    naluBuffer.limit(divideSize+sentSize);
+                    naluBuffer.limit(divideSize + sentSize);
                     // Reliable mode : if send buffer size bigger than MTU, the destination side will received data partition which is divided by 1284.
                     // Normal mode   : if send buffer size bigger than MTU, the destination side will received all data in once receive.
-                    sendVideoData(naluBuffer.slice(),divideSize);
+                    sendVideoData(naluBuffer.slice(), divideSize);
                     naluBuffer.limit(naluBuffer.capacity());
 
                     sentSize += divideSize;
-                    if(sentSize >= naluSize) {
+                    if (sentSize >= naluSize) {
                         break;
                     }
                 }
@@ -85,6 +85,7 @@ public class SendingLocalVideoThread extends Thread {
     }
 
     MediaExtractor me = new MediaExtractor();
+
     void initMediaExtractor(String path) {
         try {
             me.setDataSource(path);
@@ -96,11 +97,11 @@ public class SendingLocalVideoThread extends Thread {
             String s_sps = null;
             String s_pps = null;
 
-            for(int i=0;i<me.getTrackCount();i++) {
+            for (int i = 0; i < me.getTrackCount(); i++) {
                 mf = me.getTrackFormat(i);
                 mime = mf.getString(MediaFormat.KEY_MIME);
 
-                if(mime.startsWith("video")) {
+                if (mime.startsWith("video")) {
                     me.selectTrack(i);
                     mime = mf.getString(MediaFormat.KEY_MIME);
 
@@ -135,7 +136,7 @@ public class SendingLocalVideoThread extends Thread {
 
     public static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
-        for ( int j = 0; j < bytes.length; j++ ) {
+        for (int j = 0; j < bytes.length; j++) {
             int v = bytes[j] & 0xFF;
             hexChars[j * 2] = hexArray[v >>> 4];
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];

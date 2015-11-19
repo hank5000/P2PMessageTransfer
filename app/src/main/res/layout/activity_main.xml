@@ -1,139 +1,175 @@
 <!-- A DrawerLayout is intended to be used as the top-level content view using match_parent for both width and height to consume the full space available. -->
 <android.support.v4.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:id="@+id/drawer_layout"
-    android:layout_width="match_parent" android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     tools:context=".MainActivity">
 
     <!-- As the main content view, the view below consumes the entire
          space available using match_parent in both dimensions. -->
-    <LinearLayout android:id="@+id/container" android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
-        android:orientation="vertical"
-        >
-        <LinearLayout android:layout_width="fill_parent"
+    <RelativeLayout
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <LinearLayout
+            android:id="@+id/container"
+            android:layout_width="fill_parent"
             android:layout_height="fill_parent"
-            android:layout_weight="1"
-            android:orientation="horizontal">
-            <RelativeLayout android:layout_height="fill_parent"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/linear1"
                 android:layout_width="fill_parent"
-                android:padding="2dp"
+                android:layout_height="fill_parent"
                 android:layout_weight="1"
-                android:id="@+id/relate1">
-                <SurfaceView android:id="@+id/surfaceView1"
-                    android:layout_height="fill_parent"
-                    android:layout_width="fill_parent" />
+                android:orientation="horizontal">
 
-                <ImageButton android:layout_height="fill_parent"
+                <RelativeLayout
+                    android:id="@+id/relate1"
                     android:layout_width="fill_parent"
-                    android:layout_centerInParent="true"
-                    android:adjustViewBounds="true"
-                    android:background="@drawable/buttonback1"
-                    android:id="@+id/addBtn1"
-                    android:src="@drawable/plus"
-                    android:clickable="true"
-                    android:scaleType="centerInside" />
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1"
+                    android:padding="1dp">
 
-                <ImageButton android:layout_height="40dp"
-                    android:layout_width="40dp"
-                    android:background="@null"
-                    android:src="@drawable/remove"
-                    android:scaleType="centerInside"
-                    android:layout_alignParentTop="true"
-                    android:layout_alignParentEnd="true"
-                    android:id="@+id/rmBtn1"
-                    android:visibility="invisible"/>
-            </RelativeLayout>
-            <RelativeLayout android:layout_height="fill_parent"
+                    <SurfaceView
+                        android:id="@+id/surfaceView1"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent" />
+
+                    <ImageButton
+                        android:id="@+id/addBtn1"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:layout_centerInParent="true"
+                        android:adjustViewBounds="true"
+                        android:background="@drawable/buttonback1"
+                        android:clickable="true"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/add_blue" />
+
+                    <ImageButton
+                        android:id="@+id/rmBtn1"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:background="@drawable/background_run"
+                        android:visibility="invisible" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/relate2"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1"
+                    android:padding="1dp">
+
+                    <SurfaceView
+                        android:id="@+id/surfaceView2"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent" />
+
+                    <ImageButton
+                        android:id="@+id/addBtn2"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:layout_centerInParent="true"
+                        android:adjustViewBounds="true"
+                        android:background="@drawable/buttonback1"
+                        android:clickable="true"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/add_blue" />
+
+                    <ImageButton
+                        android:id="@+id/rmBtn2"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:background="@drawable/background_run"
+                        android:visibility="invisible" />
+
+                </RelativeLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/linear2"
                 android:layout_width="fill_parent"
-                android:padding="2dp"
+                android:layout_height="fill_parent"
                 android:layout_weight="1"
-                android:id="@+id/relate2">
-                <SurfaceView android:id="@+id/surfaceView2"
-                    android:layout_height="fill_parent"
-                    android:layout_width="fill_parent" />
-                <ImageButton android:layout_height="fill_parent"
-                    android:layout_width="fill_parent"
-                    android:layout_centerInParent="true"
-                    android:adjustViewBounds="true"
-                    android:background="@drawable/buttonback1"
-                    android:id="@+id/addBtn2"
-                    android:src="@drawable/plus"
-                    android:clickable="true"
-                    android:scaleType="centerInside" />
-                <ImageButton android:layout_height="40dp"
-                    android:layout_width="40dp"
-                    android:background="@null"
-                    android:src="@drawable/remove"
-                    android:scaleType="centerInside"
-                    android:layout_alignParentTop="true"
-                    android:layout_alignParentEnd="true"
-                    android:id="@+id/rmBtn2"
-                    android:visibility="invisible"/>
+                android:orientation="horizontal">
 
-            </RelativeLayout>
+                <RelativeLayout
+                    android:id="@+id/relate3"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1"
+                    android:padding="1dp">
+
+                    <SurfaceView
+                        android:id="@+id/surfaceView3"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent" />
+
+                    <ImageButton
+                        android:id="@+id/addBtn3"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:layout_centerInParent="true"
+                        android:adjustViewBounds="true"
+                        android:background="@drawable/buttonback1"
+                        android:clickable="true"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/add_blue" />
+
+                    <ImageButton
+                        android:id="@+id/rmBtn3"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:background="@drawable/background_run"
+                        android:visibility="invisible" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/relate4"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="1"
+                    android:padding="1dp">
+
+                    <SurfaceView
+                        android:id="@+id/surfaceView4"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent" />
+
+                    <ImageButton
+                        android:id="@+id/addBtn4"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:layout_centerInParent="true"
+                        android:adjustViewBounds="true"
+                        android:background="@drawable/buttonback1"
+                        android:clickable="true"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/add_blue" />
+
+                    <ImageButton
+                        android:id="@+id/rmBtn4"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:background="@drawable/background_run"
+                        android:visibility="invisible" />
+
+                </RelativeLayout>
+
+            </LinearLayout>
+
         </LinearLayout>
 
-        <LinearLayout android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:layout_weight="1"
-            android:orientation="horizontal">
-            <RelativeLayout android:layout_height="fill_parent"
-                android:layout_width="fill_parent"
-                android:padding="2dp"
-                android:layout_weight="1"
-                android:id="@+id/relate3">
-                <SurfaceView android:id="@+id/surfaceView3"
-                    android:layout_height="fill_parent"
-                    android:layout_width="fill_parent" />
-                <ImageButton android:layout_height="fill_parent"
-                    android:layout_width="fill_parent"
-                    android:layout_centerInParent="true"
-                    android:adjustViewBounds="true"
-                    android:background="@drawable/buttonback1"
-                    android:id="@+id/addBtn3"
-                    android:src="@drawable/plus"
-                    android:clickable="true"
-                    android:scaleType="centerInside" />
-                <ImageButton android:layout_height="40dp"
-                    android:layout_width="40dp"
-                    android:background="@null"
-                    android:src="@drawable/remove"
-                    android:scaleType="centerInside"
-                    android:layout_alignParentTop="true"
-                    android:layout_alignParentEnd="true"
-                    android:id="@+id/rmBtn3"
-                    android:visibility="invisible" />
+        <RelativeLayout android:id="@+id/container2"
+            android:layout_height="match_parent"
+            android:layout_width="50dp"
+            android:layout_alignParentEnd ="true"
+            android:orientation="horizontal" />
 
-            </RelativeLayout>
-            <RelativeLayout android:layout_height="fill_parent"
-                android:layout_width="fill_parent"
-                android:padding="2dp"
-                android:layout_weight="1"
-                android:id="@+id/relate4">
-                <SurfaceView android:id="@+id/surfaceView4"
-                    android:layout_height="fill_parent"
-                    android:layout_width="fill_parent" />
-                <ImageButton android:layout_height="fill_parent"
-                    android:layout_width="fill_parent"
-                    android:layout_centerInParent="true"
-                    android:adjustViewBounds="true"
-                    android:background="@drawable/buttonback1"
-                    android:id="@+id/addBtn4"
-                    android:src="@drawable/plus"
-                    android:clickable="true"
-                    android:scaleType="centerInside" />
-                <ImageButton android:layout_height="40dp"
-                    android:layout_width="40dp"
-                    android:background="@null"
-                    android:src="@drawable/remove"
-                    android:scaleType="centerInside"
-                    android:layout_alignParentTop="true"
-                    android:layout_alignParentEnd="true"
-                    android:id="@+id/rmBtn4"
-                    android:visibility="invisible"/>
-            </RelativeLayout>
-        </LinearLayout>
-    </LinearLayout>
+    </RelativeLayout>
 
     <!-- android:layout_gravity="start" tells DrawerLayout to treat
          this as a sliding drawer on the left side for left-to-right
@@ -142,9 +178,11 @@
          android:layout_gravity="left" instead. -->
     <!-- The drawer is given a fixed width in dp and extends the full height of
          the container. -->
-    <fragment android:id="@+id/navigation_drawer"
-        android:layout_width="@dimen/navigation_drawer_width" android:layout_height="match_parent"
-        android:layout_gravity="start" android:name="com.via.cloudwatch.NavigationDrawerFragment"
+    <fragment
+        android:id="@+id/navigation_drawer"
+        android:name="com.via.cloudwatch.NavigationDrawerFragment"
+        android:layout_width="@dimen/navigation_drawer_width"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
         tools:layout="@layout/fragment_navigation_drawer" />
-
 </android.support.v4.widget.DrawerLayout>

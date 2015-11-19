@@ -2,6 +2,8 @@ package com.via.cloudwatch;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.graphics.Point;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.os.Handler;
@@ -20,8 +22,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.support.v4.widget.DrawerLayout;
 
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
@@ -52,15 +56,16 @@ public class MainActivity extends ActionBarActivity
 
 
     libnice mNice = null;
-    int     mStreamId = -1;
+    int mStreamId = -1;
 
     SurfaceView[] videoSurfaceViews = new SurfaceView[4];
     ImageButton[] addBtns = new ImageButton[4];
-    ImageButton[] rmBtns  = new ImageButton[4];
+    ImageButton[] rmBtns = new ImageButton[4];
     RelativeLayout[] rLayouts = new RelativeLayout[4];
+    LinearLayout[] lLayouts = new LinearLayout[2];
     SendingLocalVideoThread[] sendingThreads = new SendingLocalVideoThread[4];
     VideoRecvCallback[] videoRecvCallbacks = new VideoRecvCallback[4];
-
+    RelativeLayout.LayoutParams fullScreenLayout = null;
 
     void initButtonAndSurfaceView() {
 
@@ -68,6 +73,10 @@ public class MainActivity extends ActionBarActivity
         rLayouts[1] = (RelativeLayout) findViewById(R.id.relate2);
         rLayouts[2] = (RelativeLayout) findViewById(R.id.relate3);
         rLayouts[3] = (RelativeLayout) findViewById(R.id.relate4);
+
+        lLayouts[0] = (LinearLayout) findViewById(R.id.linear1);
+        lLayouts[1] = (LinearLayout) findViewById(R.id.linear2);
+
 
         videoSurfaceViews[0] = (SurfaceView) findViewById(R.id.surfaceView1);
         videoSurfaceViews[1] = (SurfaceView) findViewById(R.id.surfaceView2);
@@ -79,17 +88,35 @@ public class MainActivity extends ActionBarActivity
         addBtns[2] = (ImageButton) findViewById(R.id.addBtn3);
         addBtns[3] = (ImageButton) findViewById(R.id.addBtn4);
 
-
-
         rmBtns[0] = (ImageButton) findViewById(R.id.rmBtn1);
         rmBtns[1] = (ImageButton) findViewById(R.id.rmBtn2);
         rmBtns[2] = (ImageButton) findViewById(R.id.rmBtn3);
         rmBtns[3] = (ImageButton) findViewById(R.id.rmBtn4);
 
-        for(int i=0;i<4;i++) {
-            addBtns[i].setOnLongClickListener(requestLiveView);
-            rmBtns[i].setOnLongClickListener(requestLiveView);
+
+        for (int i = 0; i < 4; i++) {
+            addBtns[i].setOnClickListener(requestLiveView);
+            rmBtns[i].setOnClickListener(requestLiveView);
+            addBtns[i].setOnLongClickListener(fullScreenListener);
+            rmBtns[i].setOnLongClickListener(fullScreenListener);
         }
+
+//        Point size = new Point();
+//        int w = 0;
+//        int h = 0;
+//        try {
+//            this.getWindowManager().getDefaultDisplay().getRealSize(size);
+//            h = size.y;
+//            w = size.x;
+//        } catch (NoSuchMethodError e) {
+//            h = this.getWindowManager().getDefaultDisplay().getHeight();
+//            w = this.getWindowManager().getDefaultDisplay().getWidth();
+//        }
+//        fullScreenLayout = new RelativeLayout.LayoutParams(w,h);
+
+//        Toast.makeText(this,"Resolution detect : "+w+"x"+h,Toast.LENGTH_SHORT).show();
+
+
     }
 
     MainActivity instance = this;
@@ -99,8 +126,11 @@ public class MainActivity extends ActionBarActivity
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         mNavigationDrawerFragment = (NavigationDrawerFragment)
@@ -117,20 +147,16 @@ public class MainActivity extends ActionBarActivity
          */
         initButtonAndSurfaceView();
 
-
-
-
         mNice = new libnice();
         mNice.init();
         mNice.createAgent(1);
         mNice.setStunAddress("74.125.204.127", 19302);
         mNice.setControllingMode(0);
-        mStreamId = mNice.addStream("HankWu",5);
-
+        mStreamId = mNice.addStream("HankWu", 5);
 
         // Component 1 is using for message transfer
         int forComponentIndex = 1;
-        msgChannel = new CommunicationChannel(instance,mNice,mStreamId,forComponentIndex);
+        msgChannel = new CommunicationChannel(instance, mNice, mStreamId, forComponentIndex);
         mNice.registerReceiveCallback(msgChannel, mStreamId, forComponentIndex);
         forComponentIndex = 2;
         videoRecvCallbacks[0] = new VideoRecvCallback(videoSurfaceViews[0]);
@@ -157,36 +183,39 @@ public class MainActivity extends ActionBarActivity
             }
 
             @Override
-            public void cbComponentStateChanged(final int i,final int i1,final int i2) {
+            public void cbComponentStateChanged(final int i, final int i1, final int i2) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        if(libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready")||libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("fail")) {
+                        if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready") || libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("fail")) {
                             Toast.makeText(instance, "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2], Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
             }
         });
-
         localSdp = mNice.getLocalSdp(mStreamId);
+
+
     }
 
     Fragment currentFragment = null;
+
     @Override
     public void onNavigationDrawerItemSelected(int position) {
         // update the main content by replacing fragments
         FragmentManager fragmentManager = getSupportFragmentManager();
         if (position == 0) {
-            if(currentFragment!=null) {
+            if (currentFragment != null) {
                 fragmentManager.beginTransaction().remove(currentFragment).commit();
                 mTitle = getString(R.string.title_section1);
             }
         } else {
             currentFragment = PlaceholderFragment.newInstance(position + 1);
             fragmentManager.beginTransaction()
-                    .replace(R.id.container, currentFragment)
+                    .replace(R.id.container2, currentFragment)
                     .commit();
+
         }
     }
 
@@ -206,54 +235,53 @@ public class MainActivity extends ActionBarActivity
 
 
     public void restoreActionBar() {
-        ActionBar actionBar = getSupportActionBar();
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
-        actionBar.setDisplayShowTitleEnabled(true);
-        actionBar.setTitle(mTitle);
+//        ActionBar actionBar = getSupportActionBar();
+//        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
+//        actionBar.setDisplayShowTitleEnabled(true);
+//        actionBar.setTitle(mTitle);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        if (!mNavigationDrawerFragment.isDrawerOpen()) {
-            // Only show items in the action bar relevant to this screen
-            // if the drawer is not showing. Otherwise, let the drawer
-            // decide what to show in the action bar.
-            getMenuInflater().inflate(R.menu.main, menu);
-            restoreActionBar();
-            return true;
-        }
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_server) {
-            new Thread(registerTask).start();
-            handler.postDelayed(serverTask, 1000);
-
-
-            return true;
-        }
-        if (id == R.id.action_client) {
-            new Thread(clientTask).start();
-
-            return true;
-        }
-
-        if (id == R.id.action_sending) {
-            a.start();
-            return true;
-        }
-
-
-        return super.onOptionsItemSelected(item);
-    }
+//    @Override
+//    public boolean onCreateOptionsMenu(Menu menu) {
+//        if (!mNavigationDrawerFragment.isDrawerOpen()) {
+//            // Only show items in the action bar relevant to this screen
+//            // if the drawer is not showing. Otherwise, let the drawer
+//            // decide what to show in the action bar.
+//            getMenuInflater().inflate(R.menu.main, menu);
+//            restoreActionBar();
+//            return true;
+//        }
+//        return super.onCreateOptionsMenu(menu);
+//    }
+//
+//    @Override
+//    public boolean onOptionsItemSelected(MenuItem item) {
+//        // Handle action bar item clicks here. The action bar will
+//        // automatically handle clicks on the Home/Up button, so long
+//        // as you specify a parent activity in AndroidManifest.xml.
+//        int id = item.getItemId();
+//
+//        //noinspection SimplifiableIfStatement
+//        if (id == R.id.action_server) {
+//            new Thread(registerTask).start();
+//            handler.postDelayed(serverTask, 1000);
+//
+//            return true;
+//        }
+//        if (id == R.id.action_client) {
+//            new Thread(clientTask).start();
+//
+//            return true;
+//        }
+//
+//        if (id == R.id.action_sending) {
+//            a.start();
+//            return true;
+//        }
+//
+//
+//        return super.onOptionsItemSelected(item);
+//    }
 
     /**
      * A placeholder fragment containing a simple view.
@@ -284,6 +312,25 @@ public class MainActivity extends ActionBarActivity
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_main, container, false);
+
+            final MainActivity tmp = (MainActivity) getActivity();
+
+            rootView.findViewById(R.id.connectServerBtn).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+//                    new Thread(registerTask).start();
+//                    handler.postDelayed(serverTask, 1000);
+                    new Thread(tmp.registerTask).start();
+                    tmp.handler.postDelayed(tmp.serverTask,1000);
+                }
+            });
+            rootView.findViewById(R.id.connectClientBtn).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    new Thread(tmp.clientTask).start();
+                }
+            });
+
             return rootView;
         }
 
@@ -297,7 +344,7 @@ public class MainActivity extends ActionBarActivity
 
     String remoteSdp = null;
 
-    Runnable serverTask = new Runnable(){
+    Runnable serverTask = new Runnable() {
         @Override
         public void run() {
             new Thread(new Runnable() {
@@ -305,15 +352,15 @@ public class MainActivity extends ActionBarActivity
                 public void run() {
                     try {
                         String method = "Server";
-                        String postParameters = "register="+URLEncoder.encode("FALSE", "UTF-8")
-                                +"&username="+URLEncoder.encode("HankWu","UTF-8");
+                        String postParameters = "register=" + URLEncoder.encode("FALSE", "UTF-8")
+                                + "&username=" + URLEncoder.encode("HankWu", "UTF-8");
                         String getSdp = QueryToServer.excutePost(method, postParameters);
-                        if(getSdp.startsWith("NOBODY")) {
-                           //showToast("No Remote SDP");
-                            handler.postDelayed(serverTask,1000);
+                        if (getSdp.startsWith("NOBODY")) {
+                            //showToast("No Remote SDP");
+                            handler.postDelayed(serverTask, 1000);
 
                         } else {
-                            showToast("Get remote SDP "+getSdp);
+                            showToast("Get remote SDP " + getSdp);
                             remoteSdp = getSdp;
                             handler.removeCallbacks(serverTask);
                             handler.post(setSdpTask);
@@ -328,18 +375,18 @@ public class MainActivity extends ActionBarActivity
         }
     };
 
-    Runnable clientTask = new Runnable(){
+    Runnable clientTask = new Runnable() {
         @Override
         public void run() {
             try {
                 String method = "Client";
                 String findusername = "HankWu";
-                String postParameters = "findusername="+URLEncoder.encode(findusername,"UTF-8") + "&SDP="+URLEncoder.encode(localSdp,"UTF-8");
+                String postParameters = "findusername=" + URLEncoder.encode(findusername, "UTF-8") + "&SDP=" + URLEncoder.encode(localSdp, "UTF-8");
                 String getSdp = QueryToServer.excutePost(method, postParameters);
-                if(getSdp.equals("OFFLINE")) {
-                    showToast(findusername+"is OFFLINE");
+                if (getSdp.equals("OFFLINE")) {
+                    showToast(findusername + "is OFFLINE");
                 } else {
-                    showToast("Get remote SDP "+getSdp);
+                    showToast("Get remote SDP " + getSdp);
                     remoteSdp = getSdp;
                     handler.post(setSdpTask);
                 }
@@ -377,12 +424,13 @@ public class MainActivity extends ActionBarActivity
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(instance, tmp,Toast.LENGTH_SHORT).show();
+                Toast.makeText(instance, tmp, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     MediaExtractor me = new MediaExtractor();
+
     void initMediaExtractor(String path) {
         try {
             me.setDataSource(path);
@@ -394,12 +442,12 @@ public class MainActivity extends ActionBarActivity
             String s_sps = null;
             String s_pps = null;
 
-            for(int i=0;i<me.getTrackCount();i++) {
+            for (int i = 0; i < me.getTrackCount(); i++) {
                 mf = me.getTrackFormat(i);
                 mime = mf.getString(MediaFormat.KEY_MIME);
 
 
-                if(mime.startsWith("video")) {
+                if (mime.startsWith("video")) {
                     me.selectTrack(i);
                     mime = mf.getString(MediaFormat.KEY_MIME);
 
@@ -436,7 +484,7 @@ public class MainActivity extends ActionBarActivity
 
     public static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
-        for ( int j = 0; j < bytes.length; j++ ) {
+        for (int j = 0; j < bytes.length; j++) {
             int v = bytes[j] & 0xFF;
             hexChars[j * 2] = hexArray[v >>> 4];
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
@@ -444,19 +492,19 @@ public class MainActivity extends ActionBarActivity
         return new String(hexChars);
     }
 
-    ByteBuffer naluBuffer = ByteBuffer.allocateDirect(1024*1024);
+    ByteBuffer naluBuffer = ByteBuffer.allocateDirect(1024 * 1024);
 
-    int DEFAULT_DIVIDED_SIZE = 1024*1024;
+    int DEFAULT_DIVIDED_SIZE = 1024 * 1024;
     boolean bInit = false;
-    Thread a = new Thread(new Runnable(){
+    Thread a = new Thread(new Runnable() {
         @Override
         public void run() {
             int counter = 0;
-            if(!bInit) {
+            if (!bInit) {
                 initMediaExtractor("/mnt/sata/H264_2M.mp4");
                 bInit = true;
             }
-            for(;;){
+            for (; ; ) {
                 // TODO Auto-generated method stub
                 int naluSize = me.readSampleData(naluBuffer, 0);
 
@@ -465,19 +513,18 @@ public class MainActivity extends ActionBarActivity
                 //nice.sendMsg("NALU", 1);
 
                 //for(;;) {
-                if(naluSize > 0)
-                {
-                    for(;;) {
-                        if((naluSize-sentSize) < divideSize) {
-                            divideSize = naluSize-sentSize;
+                if (naluSize > 0) {
+                    for (; ; ) {
+                        if ((naluSize - sentSize) < divideSize) {
+                            divideSize = naluSize - sentSize;
                         }
 
                         naluBuffer.position(sentSize);
-                        naluBuffer.limit(divideSize+sentSize);
+                        naluBuffer.limit(divideSize + sentSize);
                         // Reliable mode : if send buffer size bigger than MTU, the destination side will received data partition which is divided by 1284.
                         // Normal mode   : if send buffer size bigger than MTU, the destination side will received all data in once receive.
-                        mNice.sendDataDirect(naluBuffer.slice(),divideSize,mStreamId,2);
-                        mNice.sendDataDirect(naluBuffer.slice(),divideSize,mStreamId,3);
+                        mNice.sendDataDirect(naluBuffer.slice(), divideSize, mStreamId, 2);
+                        mNice.sendDataDirect(naluBuffer.slice(), divideSize, mStreamId, 3);
 
 //                        mNice.sendDataDirect(naluBuffer.slice(),divideSize,mStreamId,4);
 //                        mNice.sendDataDirect(naluBuffer.slice(),divideSize,mStreamId,5);
@@ -486,7 +533,7 @@ public class MainActivity extends ActionBarActivity
                         naluBuffer.limit(naluBuffer.capacity());
 
                         sentSize += divideSize;
-                        if(sentSize >= naluSize) {
+                        if (sentSize >= naluSize) {
                             break;
                         }
                     }
@@ -506,79 +553,152 @@ public class MainActivity extends ActionBarActivity
         }
     });
 
-    View.OnLongClickListener requestLiveView = new View.OnLongClickListener() {
-        @Override
+    int fullScreenNumber = -1;
+    LinearLayout.LayoutParams preLayout = null;
+
+    LinearLayout.LayoutParams hidingLinear = new LinearLayout.LayoutParams(0, 0, 0.0f);
+    LinearLayout.LayoutParams normalLinear = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT, 1.0f);
+    View.OnLongClickListener fullScreenListener = new View.OnLongClickListener() {
         public boolean onLongClick(View v) {
+            int number = -1;
+
+            switch (v.getId()) {
+                case R.id.addBtn1:
+                    number = 0;
+                    break;
+                case R.id.addBtn2:
+                    number = 1;
+                    break;
+                case R.id.addBtn3:
+                    number = 2;
+                    break;
+                case R.id.addBtn4:
+                    number = 3;
+                    break;
+                case R.id.rmBtn1:
+                    number = 0;
+                    break;
+                case R.id.rmBtn2:
+                    number = 1;
+                    break;
+                case R.id.rmBtn3:
+                    number = 2;
+                    break;
+                case R.id.rmBtn4:
+                    number = 3;
+                    break;
+            }
+
+            if (fullScreenNumber == -1) {
+                for (int i = 0; i < 4; i++) {
+                    if (i == number) {
+                        rLayouts[i].setVisibility(View.VISIBLE);
+                        fullScreenNumber = number;
+
+                        if (i > 1) {
+                            lLayouts[0].setLayoutParams(hidingLinear);
+                        } else {
+                            lLayouts[1].setLayoutParams(hidingLinear);
+                        }
+
+                    } else {
+                        videoRecvCallbacks[i].setRender(false);
+                        rLayouts[i].setVisibility(View.INVISIBLE);
+                        rLayouts[i].setLayoutParams(hidingLinear);
+                        videoSurfaceViews[i].setLayoutParams(new RelativeLayout.LayoutParams(0,0));
+                    }
+                }
+            } else {
+                for (int i = 0; i < 4; i++) {
+                    rLayouts[i].setVisibility(View.VISIBLE);
+                    rLayouts[i].setLayoutParams(normalLinear);
+                    fullScreenNumber = -1;
+                    videoRecvCallbacks[i].setRender(true);
+                    videoSurfaceViews[i].setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
+                }
+                for (int i = 0; i < 2; i++) {
+                    lLayouts[i].setLayoutParams(normalLinear);
+                }
+            }
+
+            return true;
+        }
+    };
+
+    View.OnClickListener requestLiveView = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
             String msg = "";
             String state = "";
             int number = -1;
             switch (v.getId()) {
-                case R.id.addBtn1 :
+                case R.id.addBtn1:
                     msg = "addbtn1";
                     state = "RUN";
                     number = 1;
                     break;
-                case R.id.addBtn2 :
+                case R.id.addBtn2:
                     msg = "addbtn2";
                     state = "RUN";
                     number = 2;
                     break;
-                case R.id.addBtn3 :
+                case R.id.addBtn3:
                     msg = "addbtn3";
                     state = "RUN";
                     number = 3;
                     break;
-                case R.id.addBtn4 :
+                case R.id.addBtn4:
                     msg = "addbtn4";
                     state = "RUN";
                     number = 4;
                     break;
-                case R.id.rmBtn1 :
+                case R.id.rmBtn1:
                     msg = "rmBtn1";
                     state = "STOP";
                     number = 1;
                     break;
-                case R.id.rmBtn2 :
+                case R.id.rmBtn2:
                     msg = "rmBtn2";
                     state = "STOP";
                     number = 2;
                     break;
-                case R.id.rmBtn3 :
+                case R.id.rmBtn3:
                     msg = "rmBtn3";
                     state = "STOP";
                     number = 3;
                     break;
-                case R.id.rmBtn4 :
+                case R.id.rmBtn4:
                     msg = "rmBtn4";
                     state = "STOP";
                     number = 4;
                     break;
             }
-            showToast("VIDEO:"+state+":"+number+":");
-            msgChannel.sendMessage("VIDEO:"+state+":"+number+":");
 
-            if(state.equalsIgnoreCase("STOP")) {
-                if(videoRecvCallbacks[number-1].isStart()) {
-                    videoRecvCallbacks[number - 1].setStop();
-                }
-            }
+            showMenu(number);
 
-            final String fstate = state;
-            final int    fnumber = number;
-
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    changeState(fstate,fnumber-1);
-                }
-            });
-            Toast.makeText(instance,msg,Toast.LENGTH_SHORT).show();
-
-            return false;
+//            showToast("VIDEO:" + state + ":" + number + ":");
+//            msgChannel.sendMessage("VIDEO:" + state + ":" + number + ":");
+//
+//            if (state.equalsIgnoreCase("STOP")) {
+//                if (videoRecvCallbacks[number - 1].isStart()) {
+//                    videoRecvCallbacks[number - 1].setStop();
+//                }
+//            }
+//
+//            final String fstate = state;
+//            final int fnumber = number;
+//
+//            runOnUiThread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    changeState(fstate, fnumber - 1);
+//                }
+//            });
+//            Toast.makeText(instance, msg, Toast.LENGTH_SHORT).show();
         }
     };
 
-    void changeState(String state,int number){
+    void changeState(String state, int number) {
         if (state.equalsIgnoreCase("RUN")) {
             addBtns[number].setVisibility(View.INVISIBLE);
             rmBtns[number].setVisibility(View.VISIBLE);
@@ -588,27 +708,83 @@ public class MainActivity extends ActionBarActivity
         }
     }
 
-    public void createSendingThread(int Stream_id,int onChannel) {
-        if(sendingThreads[onChannel-1]==null) {
+    public void createSendingThread(int Stream_id, int onChannel) {
+        if (sendingThreads[onChannel - 1] == null) {
             showToast("create Sending Thread");
-            Log.d("hank","Create sending Thread");
-            sendingThreads[onChannel-1] = new SendingLocalVideoThread(mNice,Stream_id,onChannel,"/mnt/sata/H264_2M.mp4");
-            sendingThreads[onChannel-1].start();
+            Log.d("hank", "Create sending Thread");
+            sendingThreads[onChannel - 1] = new SendingLocalVideoThread(mNice, Stream_id, onChannel, "/mnt/sata/H264_2M.mp4");
+            sendingThreads[onChannel - 1].start();
         }
     }
 
-    public void stopSendingThread(int Stream_id,int onChannel) {
-        if(sendingThreads[onChannel-1]!=null){
-            sendingThreads[onChannel-1].setStop();
-            sendingThreads[onChannel-1].interrupt();
+    public void stopSendingThread(int Stream_id, int onChannel) {
+        if (sendingThreads[onChannel - 1] != null) {
+            sendingThreads[onChannel - 1].setStop();
+            sendingThreads[onChannel - 1].interrupt();
             try {
-                sendingThreads[onChannel-1].join();
+                sendingThreads[onChannel - 1].join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            sendingThreads[onChannel-1] = null;
-            showToast("Stop sending Thread "+onChannel);
+            sendingThreads[onChannel - 1] = null;
+            showToast("Stop sending Thread " + onChannel);
         }
+    }
+
+    public void showMenu(final int onChannel) {
+        View v = View.inflate(this, R.layout.mode_list, null);
+        final AlertDialog.Builder MyAlertDialog = new AlertDialog.Builder(this);
+        MyAlertDialog.setView(v);
+        final Dialog dialog = MyAlertDialog.show();
+
+        View.OnClickListener tmpListener = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String state = "";
+                switch (v.getId()) {
+                    case R.id.menu_camera:
+                        Toast.makeText(instance, "camera on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
+                        state = "RUN";
+                        break;
+                    case R.id.menu_play:
+                        Toast.makeText(instance, "play on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
+                        state = "RUN";
+
+                        break;
+                    case R.id.menu_remove:
+                        Toast.makeText(instance, "remove on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
+                        state = "STOP";
+
+                        break;
+                }
+
+                msgChannel.sendMessage("VIDEO:" + state + ":" + onChannel + ":");
+                if (state.equalsIgnoreCase("STOP")) {
+                    if (videoRecvCallbacks[onChannel - 1].isStart()) {
+                        videoRecvCallbacks[onChannel - 1].setStop();
+                    }
+                }
+
+                final String st = state;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        changeState(st, onChannel - 1);
+                    }
+                });
+                dialog.dismiss();
+            }
+        };
+        v.findViewById(R.id.menu_play).setOnClickListener(tmpListener);
+        v.findViewById(R.id.menu_camera).setOnClickListener(tmpListener);
+        v.findViewById(R.id.menu_remove).setOnClickListener(tmpListener);
+
+//        if (videoRecvCallbacks[onChannel - 1].isStart()) {
+//            v.findViewById(R.id.menu_play).setVisibility(View.INVISIBLE);
+//            v.findViewById(R.id.menu_camera).setVisibility(View.INVISIBLE);
+//        } else {
+//            v.findViewById(R.id.menu_remove).setVisibility(View.INVISIBLE);
+//        }
     }
 
 }

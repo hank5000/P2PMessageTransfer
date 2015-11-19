@@ -16,9 +16,10 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
     private String log = "";
     final static int MAX_LOG_SIZE = 30;
     MainActivity activity = null;
-    libnice mNice=null;
+    libnice mNice = null;
     int mStreamId = 0;
     int mComponentId = 0;
+
     public CommunicationChannel(MainActivity act, libnice nice, int stream_id, int comp_id) {
         activity = act;
         mNice = nice;
@@ -44,16 +45,14 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
             int onChannel = -1;
             if (msgs[1].equals("RUN")) {
                 onChannel = Integer.valueOf(msgs[2]);
-                activity.createSendingThread(mStreamId,onChannel);
+                activity.createSendingThread(mStreamId, onChannel);
             } else if (msgs[1].equals("STOP")) {
                 onChannel = Integer.valueOf(msgs[2]);
-                activity.stopSendingThread(mStreamId,onChannel);
+                activity.stopSendingThread(mStreamId, onChannel);
             }
         }
 
     }
-
-
 
 
 }

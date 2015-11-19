@@ -17,31 +17,39 @@ import android.view.SurfaceView;
 import com.via.libnice;
 
 public class VideoRecvCallback implements libnice.ReceiveCallback {
-	
-	boolean bVideo = false;
-	int w = 0;
-	int h = 0;
-	String sps = null;
-	String pps = null;
-	String mime= null;
-	
+
+    boolean bVideo = false;
+    int w = 0;
+    int h = 0;
+    String sps = null;
+    String pps = null;
+    String mime = null;
+
     LocalServerSocket mLss = null;
     LocalSocket mReceiver = null;
-    LocalSocket mSender   = null;
-    int         mSocketId;
+    LocalSocket mSender = null;
+    int mSocketId;
     final String LOCAL_ADDR = "DataChannelToVideoDecodeThread-";
     public OutputStream os = null;
     public WritableByteChannel writableByteChannel;
     public InputStream is = null;
     VideoThread vt = null;
-    SurfaceView  videosv  = null;
+    SurfaceView videosv = null;
     final static String TAG = "VideoRecvCallback";
-    public VideoRecvCallback(SurfaceView sv) {
-    	videosv = sv;
+    boolean bRender = true;
+
+    public void setRender(boolean b) {
+        if(vt!=null) {
+            vt.setRender(b);
+        }
     }
-    
+
+    public VideoRecvCallback(SurfaceView sv) {
+        videosv = sv;
+    }
+
     private void LOGD(String msg) {
-    	Log.d(TAG,msg);
+        Log.d(TAG, msg);
     }
 
     public boolean isStart() {
@@ -51,7 +59,7 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
     public void setStop() {
         bVideo = false;
 
-        if(vt!=null) {
+        if (vt != null) {
             vt.setStop();
             vt.interrupt();
             try {
@@ -64,19 +72,19 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
     }
 
     @Override
-	public void onMessage(byte[] msg) {
-    	
-		if(!bVideo) {
-			//LOGD("not video");
-			String tmp = new String(msg);
-			if(tmp.startsWith("Video")) {
-				bVideo = true;
-				String[] tmps = tmp.split(":");
-				mime = tmps[1];
-				w = Integer.valueOf(tmps[2]);
-				h = Integer.valueOf(tmps[3]);
-				sps = tmps[4];
-				pps = tmps[5];
+    public void onMessage(byte[] msg) {
+
+        if (!bVideo) {
+            //LOGD("not video");
+            String tmp = new String(msg);
+            if (tmp.startsWith("Video")) {
+                bVideo = true;
+                String[] tmps = tmp.split(":");
+                mime = tmps[1];
+                w = Integer.valueOf(tmps[2]);
+                h = Integer.valueOf(tmps[3]);
+                sps = tmps[4];
+                pps = tmps[5];
 //				
                 for (int jj = 0; jj < 10; jj++) {
                     try {
@@ -112,22 +120,22 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
                     LOGD("fail to get mSender mReceiver :" + e);
                     e.printStackTrace();
                 }
-                
-                vt = new VideoThread(videosv.getHolder().getSurface(),mime, w,h,sps,pps,is);
-                vt.start();
-			}
-			LOGD(tmp);
-			//AddTextToChat(tmp);
-		} else {
-			//LOGD("video");
 
-			try {
-				writableByteChannel.write(ByteBuffer.wrap(msg));
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				LOGD("os write fail"+e);
-			}
-		}
-	}
+                vt = new VideoThread(videosv.getHolder().getSurface(), mime, w, h, sps, pps, is);
+                vt.start();
+            }
+            LOGD(tmp);
+            //AddTextToChat(tmp);
+        } else {
+            //LOGD("video");
+
+            try {
+                writableByteChannel.write(ByteBuffer.wrap(msg));
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                LOGD("os write fail" + e);
+            }
+        }
+    }
 
 }
