@@ -101,22 +101,6 @@ public class MainActivity extends ActionBarActivity
             rmBtns[i].setOnLongClickListener(fullScreenListener);
         }
 
-//        Point size = new Point();
-//        int w = 0;
-//        int h = 0;
-//        try {
-//            this.getWindowManager().getDefaultDisplay().getRealSize(size);
-//            h = size.y;
-//            w = size.x;
-//        } catch (NoSuchMethodError e) {
-//            h = this.getWindowManager().getDefaultDisplay().getHeight();
-//            w = this.getWindowManager().getDefaultDisplay().getWidth();
-//        }
-//        fullScreenLayout = new RelativeLayout.LayoutParams(w,h);
-
-//        Toast.makeText(this,"Resolution detect : "+w+"x"+h,Toast.LENGTH_SHORT).show();
-
-
     }
 
     MainActivity instance = this;
@@ -233,56 +217,6 @@ public class MainActivity extends ActionBarActivity
         }
     }
 
-
-    public void restoreActionBar() {
-//        ActionBar actionBar = getSupportActionBar();
-//        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
-//        actionBar.setDisplayShowTitleEnabled(true);
-//        actionBar.setTitle(mTitle);
-    }
-
-//    @Override
-//    public boolean onCreateOptionsMenu(Menu menu) {
-//        if (!mNavigationDrawerFragment.isDrawerOpen()) {
-//            // Only show items in the action bar relevant to this screen
-//            // if the drawer is not showing. Otherwise, let the drawer
-//            // decide what to show in the action bar.
-//            getMenuInflater().inflate(R.menu.main, menu);
-//            restoreActionBar();
-//            return true;
-//        }
-//        return super.onCreateOptionsMenu(menu);
-//    }
-//
-//    @Override
-//    public boolean onOptionsItemSelected(MenuItem item) {
-//        // Handle action bar item clicks here. The action bar will
-//        // automatically handle clicks on the Home/Up button, so long
-//        // as you specify a parent activity in AndroidManifest.xml.
-//        int id = item.getItemId();
-//
-//        //noinspection SimplifiableIfStatement
-//        if (id == R.id.action_server) {
-//            new Thread(registerTask).start();
-//            handler.postDelayed(serverTask, 1000);
-//
-//            return true;
-//        }
-//        if (id == R.id.action_client) {
-//            new Thread(clientTask).start();
-//
-//            return true;
-//        }
-//
-//        if (id == R.id.action_sending) {
-//            a.start();
-//            return true;
-//        }
-//
-//
-//        return super.onOptionsItemSelected(item);
-//    }
-
     /**
      * A placeholder fragment containing a simple view.
      */
@@ -318,8 +252,7 @@ public class MainActivity extends ActionBarActivity
             rootView.findViewById(R.id.connectServerBtn).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-//                    new Thread(registerTask).start();
-//                    handler.postDelayed(serverTask, 1000);
+
                     new Thread(tmp.registerTask).start();
                     tmp.handler.postDelayed(tmp.serverTask,1000);
                 }
@@ -327,6 +260,7 @@ public class MainActivity extends ActionBarActivity
             rootView.findViewById(R.id.connectClientBtn).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+
                     new Thread(tmp.clientTask).start();
                 }
             });
@@ -429,132 +363,9 @@ public class MainActivity extends ActionBarActivity
         });
     }
 
-    MediaExtractor me = new MediaExtractor();
-
-    void initMediaExtractor(String path) {
-        try {
-            me.setDataSource(path);
-            MediaFormat mf = null;
-            String mime = null;
-            String videoMsg = "Video";
-            int w = 0;
-            int h = 0;
-            String s_sps = null;
-            String s_pps = null;
-
-            for (int i = 0; i < me.getTrackCount(); i++) {
-                mf = me.getTrackFormat(i);
-                mime = mf.getString(MediaFormat.KEY_MIME);
-
-
-                if (mime.startsWith("video")) {
-                    me.selectTrack(i);
-                    mime = mf.getString(MediaFormat.KEY_MIME);
-
-                    w = mf.getInteger(MediaFormat.KEY_WIDTH);
-                    h = mf.getInteger(MediaFormat.KEY_HEIGHT);
-
-                    ByteBuffer sps_b = mf.getByteBuffer("csd-0");
-                    byte[] sps_ba = new byte[sps_b.remaining()];
-                    sps_b.get(sps_ba);
-                    s_sps = bytesToHex(sps_ba);
-
-                    mf.getByteBuffer("csd-1");
-                    ByteBuffer pps_b = mf.getByteBuffer("csd-1");
-                    byte[] pps_ba = new byte[pps_b.remaining()];
-                    pps_b.get(pps_ba);
-                    s_pps = bytesToHex(pps_ba);
-
-                    videoMsg = videoMsg + ":" + mime + ":" + w + ":" + h + ":" + s_sps + ":" + s_pps + ":";
-
-                    mNice.sendMsg(videoMsg, mStreamId, 2);
-                    mNice.sendMsg(videoMsg, mStreamId, 3);
-//                    mNice.sendMsg(videoMsg, mStreamId, 4);
-//                    mNice.sendMsg(videoMsg, mStreamId, 5);
-                    break;
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
 
-    public static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-        }
-        return new String(hexChars);
-    }
-
-    ByteBuffer naluBuffer = ByteBuffer.allocateDirect(1024 * 1024);
-
-    int DEFAULT_DIVIDED_SIZE = 1024 * 1024;
-    boolean bInit = false;
-    Thread a = new Thread(new Runnable() {
-        @Override
-        public void run() {
-            int counter = 0;
-            if (!bInit) {
-                initMediaExtractor("/mnt/sata/H264_2M.mp4");
-                bInit = true;
-            }
-            for (; ; ) {
-                // TODO Auto-generated method stub
-                int naluSize = me.readSampleData(naluBuffer, 0);
-
-                int divideSize = DEFAULT_DIVIDED_SIZE;
-                int sentSize = 0;
-                //nice.sendMsg("NALU", 1);
-
-                //for(;;) {
-                if (naluSize > 0) {
-                    for (; ; ) {
-                        if ((naluSize - sentSize) < divideSize) {
-                            divideSize = naluSize - sentSize;
-                        }
-
-                        naluBuffer.position(sentSize);
-                        naluBuffer.limit(divideSize + sentSize);
-                        // Reliable mode : if send buffer size bigger than MTU, the destination side will received data partition which is divided by 1284.
-                        // Normal mode   : if send buffer size bigger than MTU, the destination side will received all data in once receive.
-                        mNice.sendDataDirect(naluBuffer.slice(), divideSize, mStreamId, 2);
-                        mNice.sendDataDirect(naluBuffer.slice(), divideSize, mStreamId, 3);
-
-//                        mNice.sendDataDirect(naluBuffer.slice(),divideSize,mStreamId,4);
-//                        mNice.sendDataDirect(naluBuffer.slice(),divideSize,mStreamId,5);
-
-
-                        naluBuffer.limit(naluBuffer.capacity());
-
-                        sentSize += divideSize;
-                        if (sentSize >= naluSize) {
-                            break;
-                        }
-                    }
-                    me.advance();
-
-                    try {
-                        Thread.sleep(33);
-                    } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-
-                } else {
-                    me.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
-                }
-            }
-        }
-    });
-
     int fullScreenNumber = -1;
-    LinearLayout.LayoutParams preLayout = null;
 
     LinearLayout.LayoutParams hidingLinear = new LinearLayout.LayoutParams(0, 0, 0.0f);
     LinearLayout.LayoutParams normalLinear = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT, 1.0f);
@@ -620,7 +431,6 @@ public class MainActivity extends ActionBarActivity
                     lLayouts[i].setLayoutParams(normalLinear);
                 }
             }
-
             return true;
         }
     };
@@ -675,28 +485,9 @@ public class MainActivity extends ActionBarActivity
             }
 
             showMenu(number);
-
-//            showToast("VIDEO:" + state + ":" + number + ":");
-//            msgChannel.sendMessage("VIDEO:" + state + ":" + number + ":");
-//
-//            if (state.equalsIgnoreCase("STOP")) {
-//                if (videoRecvCallbacks[number - 1].isStart()) {
-//                    videoRecvCallbacks[number - 1].setStop();
-//                }
-//            }
-//
-//            final String fstate = state;
-//            final int fnumber = number;
-//
-//            runOnUiThread(new Runnable() {
-//                @Override
-//                public void run() {
-//                    changeState(fstate, fnumber - 1);
-//                }
-//            });
-//            Toast.makeText(instance, msg, Toast.LENGTH_SHORT).show();
         }
     };
+
 
     void changeState(String state, int number) {
         if (state.equalsIgnoreCase("RUN")) {
@@ -778,13 +569,6 @@ public class MainActivity extends ActionBarActivity
         v.findViewById(R.id.menu_play).setOnClickListener(tmpListener);
         v.findViewById(R.id.menu_camera).setOnClickListener(tmpListener);
         v.findViewById(R.id.menu_remove).setOnClickListener(tmpListener);
-
-//        if (videoRecvCallbacks[onChannel - 1].isStart()) {
-//            v.findViewById(R.id.menu_play).setVisibility(View.INVISIBLE);
-//            v.findViewById(R.id.menu_camera).setVisibility(View.INVISIBLE);
-//        } else {
-//            v.findViewById(R.id.menu_remove).setVisibility(View.INVISIBLE);
-//        }
     }
 
 }
