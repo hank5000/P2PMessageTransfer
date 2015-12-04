@@ -31,9 +31,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?android:attr/activatedBackgroundIndicator"
-    android:gravity="center_vertical"
+    android:gravity="center"
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
     android:paddingEnd="?android:attr/listPreferredItemPaddingEnd"
     android:paddingStart="?android:attr/listPreferredItemPaddingStart"
     android:textAppearance="@drawable/buttonback1"
-    android:textColor="@android:color/white" />
+    android:textColor="@android:color/white"
+    android:textSize="20sp" />

@@ -21,6 +21,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <service android:name=".ServerService">
+            <intent-filter>
+                <action android:name="com.via.rtc"/>
+            </intent-filter>>
+        </service>>
+
     </application>
 
 </manifest>

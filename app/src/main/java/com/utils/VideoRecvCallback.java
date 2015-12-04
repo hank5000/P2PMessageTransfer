@@ -37,6 +37,7 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
     SurfaceView videosv = null;
     final static String TAG = "VideoRecvCallback";
     boolean bRender = true;
+    String remote_address = "";
 
     public void setRender(boolean b) {
         if(vt!=null) {
@@ -75,9 +76,9 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
     public void onMessage(byte[] msg) {
 
         if (!bVideo) {
-            //LOGD("not video");
             String tmp = new String(msg);
             if (tmp.startsWith("Video")) {
+
                 bVideo = true;
                 String[] tmps = tmp.split(":");
                 mime = tmps[1];
@@ -85,7 +86,8 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
                 h = Integer.valueOf(tmps[3]);
                 sps = tmps[4];
                 pps = tmps[5];
-//				
+                remote_address = tmps[6];
+
                 for (int jj = 0; jj < 10; jj++) {
                     try {
                         mSocketId = new Random().nextInt();
@@ -114,23 +116,20 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
                 }
                 try {
                     os = mSender.getOutputStream();
-                    writableByteChannel = Channels.newChannel(os);
                     is = mReceiver.getInputStream();
                 } catch (IOException e) {
                     LOGD("fail to get mSender mReceiver :" + e);
                     e.printStackTrace();
                 }
-
-                vt = new VideoThread(videosv.getHolder().getSurface(), mime, w, h, sps, pps, is);
+                LOGD("Ready to play ("+mime+"), resolution "+w+"x"+"h");
+                vt = new VideoThread(videosv.getHolder().getSurface(), mime, w, h, sps, pps, is,remote_address);
                 vt.start();
             }
-            LOGD(tmp);
-            //AddTextToChat(tmp);
+
         } else {
-            //LOGD("video");
 
             try {
-                writableByteChannel.write(ByteBuffer.wrap(msg));
+                os.write(msg);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 LOGD("os write fail" + e);

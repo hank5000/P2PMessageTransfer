@@ -17,6 +17,7 @@ public class VideoThread extends Thread {
 
     byte[] inputStreamTmp = new byte[1024 * 1024];
     ByteBuffer rawDataCollectBuffer = ByteBuffer.allocate(1024 * 1024 * 10);
+    public int currentFPS = 0;
     byte[] dst = new byte[1024 * 1024];
     private MediaCodec decoder;
     private Surface surface;
@@ -24,6 +25,13 @@ public class VideoThread extends Thread {
     private boolean bStart = true;
     VideoDisplayThread vdt = null;
     public boolean bIsEnd = false;
+    public long startTime = -1;
+    public boolean bDropMode = false;
+    public String remote_address = "";
+    public int bitRate = 0;
+
+
+
     public void setRender(boolean b) {
         if(vdt!=null) {
             vdt.setRender(b);
@@ -51,7 +59,7 @@ public class VideoThread extends Thread {
         return data;
     }
 
-    public VideoThread(Surface surf, String mime, int width, int height, String sps, String pps, InputStream inputStream) {
+    public VideoThread(Surface surf, String mime, int width, int height, String sps, String pps, InputStream inputStream, String ip) {
         this.surface = surf;
         this.mMime = mime;
         this.mWidth = width;
@@ -59,10 +67,15 @@ public class VideoThread extends Thread {
         this.mSPS = sps;
         this.mPPS = pps;
         this.is = inputStream;
+        this.remote_address = ip;
     }
 
     final static String MediaFormat_SPS = "csd-0";
     final static String MediaFormat_PPS = "csd-1";
+    boolean bNeedRequestBuffer = true;
+    boolean bDoNotDecode = true;
+    int inIndex = -1;
+    int lostFPS = 0;
 
     public void run() {
 
@@ -98,36 +111,43 @@ public class VideoThread extends Thread {
         int readSize = 0;
         int firstNalu = 0;
         int secondNalu = 0;
+        boolean bHasFirstNALU = false;
 
         if (vdt == null) {
             vdt = new VideoDisplayThread(decoder, outputBuffers, info);
             vdt.start();
         }
 
-        while (!Thread.interrupted() && bStart && decoder != null) {
-            int inIndex = decoder.dequeueInputBuffer(10000);
-            if (inIndex > 0) {
+        while (!Thread.interrupted() && bStart && decoder != null && is != null) {
+            try {
+                readSize = is.read(inputStreamTmp);
 
-                while (!Thread.interrupted() && bStart && decoder != null && is != null) {
-                    try {
-                        readSize = is.read(inputStreamTmp);
-                        if (readSize > 0) {
-                            rawDataCollectBuffer.put(inputStreamTmp, 0, readSize);
-                        }
-                    } catch (Exception e) {
-                        Log.d(TAG, "inputstream cannot read : " + e);
+                if (readSize > 0) {
+                    rawDataCollectBuffer.put(inputStreamTmp, 0, readSize);
+                }
+            } catch (Exception e) {
+                Log.d(TAG, "inputstream cannot read : " + e);
 
-                        if (!bStart) {
-                            break;
-                        }
-                    }
+                if (!bStart) {
+                    break;
+                }
+            }
 
-                    firstNalu = findNalu(0, rawDataCollectBuffer);
+            for(;;) {
+                if(bNeedRequestBuffer) {
+                    inIndex = decoder.dequeueInputBuffer(10000);
+                    bNeedRequestBuffer = false;
+                }
+                if (inIndex > 0) {
+                    //long currentTime = System.currentTimeMillis();
 
-                    //Log.d(TAG,"firstNalue : "+ firstNalu +"rawDataCollectBuffer :" +rawDataCollectBuffer.get(0)+rawDataCollectBuffer.get(1)+rawDataCollectBuffer.get(2)+rawDataCollectBuffer.get(3));
+                    if(!bHasFirstNALU)
+                        firstNalu = findNalu(0, rawDataCollectBuffer);
 
                     if (firstNalu != -1) {
-                        secondNalu = findNalu(firstNalu + 3, rawDataCollectBuffer);
+                        bHasFirstNALU = true;
+
+                        secondNalu = findNalu(firstNalu+3, rawDataCollectBuffer);
 
                         if (secondNalu != -1 && secondNalu > firstNalu) {
                             rawDataCollectBuffer.flip();
@@ -146,16 +166,50 @@ public class VideoThread extends Thread {
                                 buffer.clear();
                                 buffer.put(dst, 0, secondNalu - firstNalu);
                                 decoder.queueInputBuffer(inIndex, 0, secondNalu - firstNalu, 0, 0);
-                                break;
+                                bitRate += (secondNalu-firstNalu);
+                                bNeedRequestBuffer = true;
+                                bHasFirstNALU = false;
+
+                                //Log.d(TAG,"Time Of Decode One frame : "+(System.currentTimeMillis()-currentTime));
+
+                                currentFPS++;
+                                if (startTime == -1) {
+                                    startTime = System.currentTimeMillis();
+                                }
+
+                                if (System.currentTimeMillis() - startTime >= 1000) {
+                                    Log.d(TAG, remote_address+" ===>  FPS : " + currentFPS+", birate : "+bitRate);
+                                    bitRate = 0;
+                                    currentFPS = 0;
+                                    startTime = System.currentTimeMillis();
+
+                                    if(bDropMode) {
+                                        lostFPS += 30 - currentFPS;
+
+                                        if (lostFPS > 30) {
+                                            lostFPS = 0;
+                                            rawDataCollectBuffer.clear();
+                                            break;
+                                        }
+                                    }
+
+                                }
+
                             }
+                        } else {
+                            break;
                         }
                     } else {
                         Log.d(TAG, "Something wrong");
+                        break;
                     }
-
+                } else {
+                    bNeedRequestBuffer = true;
+                    break;
                 }
             }
         }
+
 
         vdt.interrupt();
         try {
@@ -207,12 +261,12 @@ public class VideoThread extends Thread {
                     default:
                         // ByteBuffer buffer = outputBuffers[outIndex];
                         // Log.v("DecodeActivity", "We can't use this buffer but render it due to the API limit, " + buffer);
-                        try {
-                            sleep(30);
-                        } catch (InterruptedException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
+//                        try {
+//                            sleep(30);
+//                        } catch (InterruptedException e) {
+//                            // TODO Auto-generated catch block
+//                            e.printStackTrace();
+//                        }
                         //Log.d("libnice", "coming2");
                         this.decoder.releaseOutputBuffer(outIndex, bRender);
                         break;

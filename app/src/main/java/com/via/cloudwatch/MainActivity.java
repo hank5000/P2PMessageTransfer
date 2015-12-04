@@ -3,20 +3,17 @@ package com.via.cloudwatch;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.graphics.Point;
-import android.media.MediaExtractor;
-import android.media.MediaFormat;
+import android.media.MediaPlayer;
 import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.ActionBar;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
+
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,22 +21,30 @@ import android.support.v4.widget.DrawerLayout;
 
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
 import com.utils.CommunicationChannel;
+import com.utils.DefaultSetting;
+import com.utils.LiveViewInfo;
 import com.utils.QueryToServer;
+import com.utils.SendingLiveViewThread;
 import com.utils.SendingLocalVideoThread;
 import com.utils.VideoRecvCallback;
+import com.utils.Item;
+import com.utils.ItemArrayAdapter;
 import com.via.libnice;
 
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends ActionBarActivity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks {
@@ -49,11 +54,7 @@ public class MainActivity extends ActionBarActivity
      */
     private NavigationDrawerFragment mNavigationDrawerFragment;
 
-    /**
-     * Used to store the last screen title. For use in {@link #restoreActionBar()}.
-     */
     private CharSequence mTitle;
-
 
     libnice mNice = null;
     int mStreamId = -1;
@@ -64,8 +65,37 @@ public class MainActivity extends ActionBarActivity
     RelativeLayout[] rLayouts = new RelativeLayout[4];
     LinearLayout[] lLayouts = new LinearLayout[2];
     SendingLocalVideoThread[] sendingThreads = new SendingLocalVideoThread[4];
+    SendingLiveViewThread[] sendingLiveThreads = new SendingLiveViewThread[4];
     VideoRecvCallback[] videoRecvCallbacks = new VideoRecvCallback[4];
-    RelativeLayout.LayoutParams fullScreenLayout = null;
+    DisplayMetrics metrics = null;
+    boolean[] isAllReadyTable = new boolean[5];
+    boolean isAllReady = false;
+
+    public ArrayList<LiveViewInfo> liveViewList = new ArrayList<LiveViewInfo>();
+
+    boolean checkAllReady() {
+        isAllReady = (isAllReadyTable[0] && isAllReadyTable[1] && isAllReadyTable[2] && isAllReadyTable[3] && isAllReadyTable[4]);
+        if (isAllReady) {
+            Toast.makeText(MainActivity.this, "It has been connected!", Toast.LENGTH_LONG).show();
+        }
+        if (bClient && isAllReady) {
+            msgChannel.sendMessage(CommunicationChannel.REQUEST_LIVE_VIEW_INFO);
+        }
+
+        return isAllReady;
+    }
+
+    @Override
+    protected void onPause() {
+//        if (mediaplayer != null) {
+//            mediaplayer.release();
+//            mediaplayer = null;
+//        }
+        super.onPause();
+    }
+
+    boolean bClient = false;
+    boolean bSource = false;
 
     void initButtonAndSurfaceView() {
 
@@ -108,6 +138,9 @@ public class MainActivity extends ActionBarActivity
     Handler handler = new Handler();
     CommunicationChannel msgChannel = null;
 
+    P2PThread p2pthread = null;
+    int reliableMode = 1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -125,62 +158,72 @@ public class MainActivity extends ActionBarActivity
         mNavigationDrawerFragment.setUp(
                 R.id.navigation_drawer,
                 (DrawerLayout) findViewById(R.id.drawer_layout));
+//        /*
+//            set all button/view/layout to instance.
+//         */
+        if(!bSource) {
+            initButtonAndSurfaceView();
 
-        /*
-            set all button/view/layout to instance.
-         */
-        initButtonAndSurfaceView();
+            mNice = new libnice();
+            mNice.init();
+            mNice.createAgent(DefaultSetting.isReliableMode());
+            mNice.setStunAddress("74.125.204.127", 19302);
+            mNice.setControllingMode(0);
+            mStreamId = mNice.addStream("HankWu", 5);
 
-        mNice = new libnice();
-        mNice.init();
-        mNice.createAgent(1);
-        mNice.setStunAddress("74.125.204.127", 19302);
-        mNice.setControllingMode(0);
-        mStreamId = mNice.addStream("HankWu", 5);
+            // Component 1 is using for message transfer
+            int forComponentIndex = 1;
+            msgChannel = new CommunicationChannel(instance, mNice, mStreamId, forComponentIndex);
+            mNice.registerReceiveCallback(msgChannel, mStreamId, forComponentIndex);
+            forComponentIndex = 2;
+            videoRecvCallbacks[0] = new VideoRecvCallback(videoSurfaceViews[0]);
+            mNice.registerReceiveCallback(videoRecvCallbacks[0], mStreamId, forComponentIndex);
+            forComponentIndex = 3;
+            videoRecvCallbacks[1] = new VideoRecvCallback(videoSurfaceViews[1]);
+            mNice.registerReceiveCallback(videoRecvCallbacks[1], mStreamId, forComponentIndex);
+            forComponentIndex = 4;
+            videoRecvCallbacks[2] = new VideoRecvCallback(videoSurfaceViews[2]);
+            mNice.registerReceiveCallback(videoRecvCallbacks[2], mStreamId, forComponentIndex);
+            forComponentIndex = 5;
+            videoRecvCallbacks[3] = new VideoRecvCallback(videoSurfaceViews[3]);
+            mNice.registerReceiveCallback(videoRecvCallbacks[3], mStreamId, forComponentIndex);
 
-        // Component 1 is using for message transfer
-        int forComponentIndex = 1;
-        msgChannel = new CommunicationChannel(instance, mNice, mStreamId, forComponentIndex);
-        mNice.registerReceiveCallback(msgChannel, mStreamId, forComponentIndex);
-        forComponentIndex = 2;
-        videoRecvCallbacks[0] = new VideoRecvCallback(videoSurfaceViews[0]);
-        mNice.registerReceiveCallback(videoRecvCallbacks[0], mStreamId, forComponentIndex);
-        forComponentIndex = 3;
-        videoRecvCallbacks[1] = new VideoRecvCallback(videoSurfaceViews[1]);
-        mNice.registerReceiveCallback(videoRecvCallbacks[1], mStreamId, forComponentIndex);
-        forComponentIndex = 4;
-        videoRecvCallbacks[2] = new VideoRecvCallback(videoSurfaceViews[2]);
-        mNice.registerReceiveCallback(videoRecvCallbacks[2], mStreamId, forComponentIndex);
-        forComponentIndex = 5;
-        videoRecvCallbacks[3] = new VideoRecvCallback(videoSurfaceViews[3]);
-        mNice.registerReceiveCallback(videoRecvCallbacks[3], mStreamId, forComponentIndex);
-
-        mNice.registerStateObserver(new libnice.StateObserver() {
-            @Override
-            public void cbCandidateGatheringDone(final int i) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        //Toast.makeText(instance , "Candidate Gathering Done Stream["+i+"]", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-
-            @Override
-            public void cbComponentStateChanged(final int i, final int i1, final int i2) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready") || libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("fail")) {
-                            Toast.makeText(instance, "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2], Toast.LENGTH_SHORT).show();
+            mNice.registerStateObserver(new libnice.StateObserver() {
+                @Override
+                public void cbCandidateGatheringDone(final int i) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            //Toast.makeText(instance , "Candidate Gathering Done Stream["+i+"]", Toast.LENGTH_SHORT).show();
                         }
-                    }
-                });
-            }
-        });
-        localSdp = mNice.getLocalSdp(mStreamId);
+                    });
+                }
 
+                @Override
+                public void cbComponentStateChanged(final int i, final int i1, final int i2) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready") || libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("failed")) {
+                                Toast.makeText(instance, "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2], Toast.LENGTH_SHORT).show();
+                                if (bClient && libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready")) {
+                                    isAllReadyTable[i1 - 1] = true;
+                                    checkAllReady();
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            localSdp = mNice.getLocalSdp(mStreamId);
 
+            // use for measure the size of AlertDialog.
+            metrics = getResources().getDisplayMetrics();
+        } else {
+
+            p2pthread = new P2PThread();
+            p2pthread.start();
+        }
     }
 
     Fragment currentFragment = null;
@@ -199,7 +242,6 @@ public class MainActivity extends ActionBarActivity
             fragmentManager.beginTransaction()
                     .replace(R.id.container2, currentFragment)
                     .commit();
-
         }
     }
 
@@ -216,6 +258,9 @@ public class MainActivity extends ActionBarActivity
                 break;
         }
     }
+
+    MediaPlayer mediaplayer = null;
+    int serverClickCounter = 0;
 
     /**
      * A placeholder fragment containing a simple view.
@@ -252,15 +297,20 @@ public class MainActivity extends ActionBarActivity
             rootView.findViewById(R.id.connectServerBtn).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    if(tmp.serverClickCounter!=0) {
+                        tmp.mNice.restartStream(tmp.mStreamId);
+                        tmp.localSdp = tmp.mNice.getLocalSdp(tmp.mStreamId);
+                    }
 
+                    tmp.serverClickCounter++;
                     new Thread(tmp.registerTask).start();
-                    tmp.handler.postDelayed(tmp.serverTask,1000);
+                    tmp.handler.postDelayed(tmp.serverTask, 1000);
                 }
             });
             rootView.findViewById(R.id.connectClientBtn).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-
+                    tmp.bClient = true;
                     new Thread(tmp.clientTask).start();
                 }
             });
@@ -305,7 +355,6 @@ public class MainActivity extends ActionBarActivity
                     }
                 }
             }).start();
-
         }
     };
 
@@ -354,7 +403,7 @@ public class MainActivity extends ActionBarActivity
         }
     };
 
-    void showToast(final String tmp) {
+    public void showToast(final String tmp) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -416,7 +465,7 @@ public class MainActivity extends ActionBarActivity
                         videoRecvCallbacks[i].setRender(false);
                         rLayouts[i].setVisibility(View.INVISIBLE);
                         rLayouts[i].setLayoutParams(hidingLinear);
-                        videoSurfaceViews[i].setLayoutParams(new RelativeLayout.LayoutParams(0,0));
+                        videoSurfaceViews[i].setLayoutParams(new RelativeLayout.LayoutParams(0, 0));
                     }
                 }
             } else {
@@ -438,6 +487,12 @@ public class MainActivity extends ActionBarActivity
     View.OnClickListener requestLiveView = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
+            if (!isAllReady) {
+                Toast.makeText(instance, "please wait for connect", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+
             String msg = "";
             String state = "";
             int number = -1;
@@ -483,7 +538,6 @@ public class MainActivity extends ActionBarActivity
                     number = 4;
                     break;
             }
-
             showMenu(number);
         }
     };
@@ -499,14 +553,23 @@ public class MainActivity extends ActionBarActivity
         }
     }
 
-    public void createSendingThread(int Stream_id, int onChannel) {
+    public void createLocalVideoSendingThread(int Stream_id, int onChannel, String path) {
         if (sendingThreads[onChannel - 1] == null) {
             showToast("create Sending Thread");
-            Log.d("hank", "Create sending Thread");
-            sendingThreads[onChannel - 1] = new SendingLocalVideoThread(mNice, Stream_id, onChannel, "/mnt/sata/H264_2M.mp4");
+            Log.d("hank", "Create sending Thread, path : "+path+",on Channel :"+onChannel);
+            sendingThreads[onChannel - 1] = new SendingLocalVideoThread(mNice, Stream_id, onChannel, path);
             sendingThreads[onChannel - 1].start();
         }
     }
+
+    public void createLiveViewSendingThread(int Stream_id, int onChannel, String ip) {
+        if (sendingLiveThreads[onChannel - 1] == null) {
+            showToast("create live view thread");
+            sendingLiveThreads[onChannel - 1] = new SendingLiveViewThread(mNice, Stream_id, onChannel, ip);
+            sendingLiveThreads[onChannel - 1].start();
+        }
+    }
+
 
     public void stopSendingThread(int Stream_id, int onChannel) {
         if (sendingThreads[onChannel - 1] != null) {
@@ -520,6 +583,18 @@ public class MainActivity extends ActionBarActivity
             sendingThreads[onChannel - 1] = null;
             showToast("Stop sending Thread " + onChannel);
         }
+
+        if (sendingLiveThreads[onChannel - 1] != null) {
+            sendingLiveThreads[onChannel - 1].setStop();
+            sendingLiveThreads[onChannel - 1].interrupt();
+            try {
+                sendingLiveThreads[onChannel - 1].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            sendingLiveThreads[onChannel - 1] = null;
+            showToast("Stop sending Thread " + onChannel);
+        }
     }
 
     public void showMenu(final int onChannel) {
@@ -527,7 +602,11 @@ public class MainActivity extends ActionBarActivity
         final AlertDialog.Builder MyAlertDialog = new AlertDialog.Builder(this);
         MyAlertDialog.setView(v);
         final Dialog dialog = MyAlertDialog.show();
-
+        float density = metrics.density;
+        if(density<1.0) {
+            density = 1;
+        }
+        dialog.getWindow().setLayout((int) density * 330, (int) density * 120);
         View.OnClickListener tmpListener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -535,25 +614,31 @@ public class MainActivity extends ActionBarActivity
                 switch (v.getId()) {
                     case R.id.menu_camera:
                         Toast.makeText(instance, "camera on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
-                        state = "RUN";
+                        //state = "RUN";
+                        showLiveViewDialog(onChannel);
+
                         break;
                     case R.id.menu_play:
                         Toast.makeText(instance, "play on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
                         state = "RUN";
+                        msgChannel.sendMessage("VIDEO:" + state + ":" + onChannel + ":"+"/mnt/sata/test1.mp4");
 
                         break;
                     case R.id.menu_remove:
                         Toast.makeText(instance, "remove on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
                         state = "STOP";
+                        msgChannel.sendMessage("VIDEO:" + state + ":" + onChannel + ":");
 
                         break;
                 }
 
-                msgChannel.sendMessage("VIDEO:" + state + ":" + onChannel + ":");
                 if (state.equalsIgnoreCase("STOP")) {
                     if (videoRecvCallbacks[onChannel - 1].isStart()) {
                         videoRecvCallbacks[onChannel - 1].setStop();
                     }
+
+                    setLiveViewIdleByChannel(onChannel);
+
                 }
 
                 final String st = state;
@@ -570,5 +655,80 @@ public class MainActivity extends ActionBarActivity
         v.findViewById(R.id.menu_camera).setOnClickListener(tmpListener);
         v.findViewById(R.id.menu_remove).setOnClickListener(tmpListener);
     }
+
+
+    private void showLiveViewDialog(final int channelIndex) {
+
+        if (liveViewList.size() > 0) {
+            final View v = View.inflate(this, R.layout.request_live_view1, null);
+            GridView gv = (GridView) v.findViewById(R.id.camera_gridview);
+            List<Item> item = new ArrayList<Item>();
+            String[] itemStringArray = new String[liveViewList.size()];
+            for (int i = 0; i < liveViewList.size(); i++) {
+                if (liveViewList.get(i).getStatus().equals("IDLE")) {
+                    Item n = new Item(liveViewList.get(i).getName());
+                    item.add(n);
+                }
+            }
+            final List<Item> finalItem = item;
+
+            ItemArrayAdapter itemArrayAdapter = new ItemArrayAdapter(this, R.layout.view_camera, item);
+            gv.setNumColumns(liveViewList.size());
+            gv.setAdapter(itemArrayAdapter);
+
+            final AlertDialog.Builder MyAlertDialog = new AlertDialog.Builder(this);
+
+            MyAlertDialog.setTitle("Live View List")
+                    .setView(v);
+
+            final AlertDialog dialog1 = MyAlertDialog.create();
+
+            dialog1.show();
+            dialog1.getWindow().setLayout((int) metrics.density * liveViewList.size() * 110 + 50, (int) metrics.density * 220 + 50);
+
+            gv.setOnItemLongClickListener(new GridView.OnItemLongClickListener() {
+                public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                    msgChannel.sendMessage("LiveView:RUN:"+finalItem.get(position).getName()+":"+channelIndex);
+                    setLiveViewStatusByName(finalItem.get(position).getName(), channelIndex + "");
+                    dialog1.dismiss();
+                    final String st = "RUN";
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            changeState(st, channelIndex - 1);
+                        }
+                    });
+
+
+                    return true;
+                }
+            });
+        } else {
+            Toast.makeText(MainActivity.this, "It has no Live View", Toast.LENGTH_SHORT).show();
+        }
+
+
+    }
+
+    public boolean setLiveViewStatusByName(String n,String s) {
+        for(int i=0;i<liveViewList.size();i++) {
+            if(liveViewList.get(i).getName().equalsIgnoreCase(n)) {
+                liveViewList.get(i).setStatus(s);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean setLiveViewIdleByChannel(int channelIndex) {
+        for(int i=0;i<liveViewList.size();i++) {
+            if(liveViewList.get(i).getStatus().equalsIgnoreCase(channelIndex+"")) {
+                liveViewList.get(i).setStatus("IDLE");
+                return true;
+            }
+        }
+        return false;
+    }
+
 
 }

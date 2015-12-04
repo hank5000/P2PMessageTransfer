@@ -52,23 +52,9 @@ public class SendingLocalVideoThread extends Thread {
             int sentSize = 0;
 
             if (naluSize > 0) {
-                for (; ; ) {
-                    if ((naluSize - sentSize) < divideSize) {
-                        divideSize = naluSize - sentSize;
-                    }
 
-                    naluBuffer.position(sentSize);
-                    naluBuffer.limit(divideSize + sentSize);
-                    // Reliable mode : if send buffer size bigger than MTU, the destination side will received data partition which is divided by 1284.
-                    // Normal mode   : if send buffer size bigger than MTU, the destination side will received all data in once receive.
-                    sendVideoData(naluBuffer.slice(), divideSize);
-                    naluBuffer.limit(naluBuffer.capacity());
+                sendVideoData(naluBuffer, naluSize);
 
-                    sentSize += divideSize;
-                    if (sentSize >= naluSize) {
-                        break;
-                    }
-                }
                 me.advance();
 
                 try {
@@ -119,7 +105,7 @@ public class SendingLocalVideoThread extends Thread {
                     pps_b.get(pps_ba);
                     s_pps = bytesToHex(pps_ba);
 
-                    videoMsg = videoMsg + ":" + mime + ":" + w + ":" + h + ":" + s_sps + ":" + s_pps + ":";
+                    videoMsg = videoMsg + ":" + mime + ":" + w + ":" + h + ":" + s_sps + ":" + s_pps + ":"+ path + ":";
 
                     sendVideoMsg(videoMsg);
 
