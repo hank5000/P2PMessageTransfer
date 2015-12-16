@@ -56,16 +56,15 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
             }
         }
 
-        if (inputMsg.startsWith("LIVEVIEW")) {
+        if (inputMsg.startsWith("LiveView")) {
             String[] msgs = inputMsg.split(":");
             int onChannel = -1;
             if (msgs[1].equals("RUN")) {
-                onChannel = Integer.valueOf(msgs[2]);
-                String nickName = msgs[3];
+                onChannel = Integer.valueOf(msgs[3]);
+                String nickName = msgs[2];
 
-                //TODO: get url by using nickname
                 String url = getUrlByUsingNickname(nickName);
-                activity.createLocalVideoSendingThread(mStreamId, onChannel, url);
+                activity.createLiveViewSendingThread(mStreamId, onChannel, url);
 
             } else if (msgs[1].equals("STOP")) {
 
@@ -76,10 +75,11 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
         }
 
         if (inputMsg.startsWith(REQUEST_LIVE_VIEW_INFO)) {
-            // TODO: Send the information of live view to request side
-            // Live View Info List format => Camera01:Camera02:...
 
-            sendMessage(FEEDBACK_LIVE_VIEW_INFO + ":" + "Camera01:Camera02:Camera03:Camera04:");
+            //Test use only, the main function is implemented in P2PCommuncationChannel, that is
+            //work in Service.
+            sendMessage(FEEDBACK_LIVE_VIEW_INFO + ":" + "OV112:OV114:OV121:");
+
         }
 
         if (inputMsg.startsWith(FEEDBACK_LIVE_VIEW_INFO)) {
@@ -95,7 +95,7 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
                 LiveViewInfo liveView = new LiveViewInfo(inputMsgSplits[i], "IDLE");
                 activity.liveViewList.add(liveView);
             }
-            activity.showToast(inputMsg);
+            activity.showToast("D",inputMsg);
 
         }
 
@@ -104,7 +104,23 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
 
 
     String getUrlByUsingNickname(String nickname) {
-        String url = "ov://192.168.12.112:1000";
+        String url = "";
+        if(nickname.equals("OV121")) {
+            url = "ov://192.168.12.121:1000";
+        }
+
+        if(nickname.equals("OV112")) {
+            url = "ov://192.168.12.112:1000";
+        }
+
+        if(nickname.equals("OV114")) {
+            url = "ov://192.168.12.114:1000";
+        }
+
+        if(nickname.equals("RTSP202")) {
+            url = "rtsp://192.168.12.202:554/rtpvideo1.sdp";
+        }
+
         return url;
     }
 

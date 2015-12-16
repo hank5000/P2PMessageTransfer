@@ -54,6 +54,14 @@
                         android:layout_height="fill_parent"
                         android:background="@drawable/background_run"
                         android:visibility="invisible" />
+
+                    <TextView android:id="@+id/fpsView1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16dp"
+                        android:text=""
+                        android:textColor="@color/White"
+                        android:layout_alignParentBottom="true"/>
                 </RelativeLayout>
 
                 <RelativeLayout
@@ -85,7 +93,14 @@
                         android:layout_height="fill_parent"
                         android:background="@drawable/background_run"
                         android:visibility="invisible" />
+                    <TextView android:id="@+id/fpsView2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16dp"
+                        android:text=""
+                        android:textColor="@color/White"
 
+                        android:layout_alignParentBottom="true"/>
                 </RelativeLayout>
             </LinearLayout>
 
@@ -125,6 +140,15 @@
                         android:layout_height="fill_parent"
                         android:background="@drawable/background_run"
                         android:visibility="invisible" />
+
+                    <TextView android:id="@+id/fpsView3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16dp"
+                        android:text=""
+                        android:textColor="@color/White"
+
+                        android:layout_alignParentBottom="true"/>
                 </RelativeLayout>
 
                 <RelativeLayout
@@ -156,7 +180,13 @@
                         android:layout_height="fill_parent"
                         android:background="@drawable/background_run"
                         android:visibility="invisible" />
-
+                    <TextView android:id="@+id/fpsView4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16dp"
+                        android:text=""
+                        android:textColor="@color/White"
+                        android:layout_alignParentBottom="true"/>
                 </RelativeLayout>
 
             </LinearLayout>
@@ -167,7 +197,18 @@
             android:layout_height="match_parent"
             android:layout_width="50dp"
             android:layout_alignParentEnd ="true"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true"
+            android:layout_centerInParent="true"
             android:orientation="horizontal" />
+
+        <RelativeLayout android:id="@+id/container3"
+            android:layout_height="match_parent"
+            android:layout_width="wrap_content"
+            android:layout_centerInParent="true"
+            android:orientation="horizontal" />
+
+
 
     </RelativeLayout>
 

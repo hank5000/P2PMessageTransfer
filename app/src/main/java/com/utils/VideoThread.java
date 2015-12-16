@@ -4,6 +4,9 @@ import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.util.Log;
 import android.view.Surface;
+import android.view.View;
+
+import com.via.cloudwatch.MainActivity;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +32,8 @@ public class VideoThread extends Thread {
     public boolean bDropMode = false;
     public String remote_address = "";
     public int bitRate = 0;
+    public MainActivity act = null;
+    int index = -1;
 
 
 
@@ -59,7 +64,7 @@ public class VideoThread extends Thread {
         return data;
     }
 
-    public VideoThread(Surface surf, String mime, int width, int height, String sps, String pps, InputStream inputStream, String ip) {
+    public VideoThread(MainActivity a,int i,Surface surf, String mime, int width, int height, String sps, String pps, InputStream inputStream, String ip) {
         this.surface = surf;
         this.mMime = mime;
         this.mWidth = width;
@@ -68,6 +73,8 @@ public class VideoThread extends Thread {
         this.mPPS = pps;
         this.is = inputStream;
         this.remote_address = ip;
+        this.act = a;
+        this.index = i;
     }
 
     final static String MediaFormat_SPS = "csd-0";
@@ -159,8 +166,6 @@ public class VideoThread extends Thread {
                             rawDataCollectBuffer.compact();
 
                             int nalu_unit_type = (dst[4] & 0x1F);
-                            //Log.d(TAG,"NALU TYPE :" +nalu_unit_type);
-                            //if(nalu_unit_type!=8 && nalu_unit_type!=7 && nalu_unit_type!=6)
                             {
                                 ByteBuffer buffer = inputBuffers[inIndex];
                                 buffer.clear();
@@ -178,7 +183,15 @@ public class VideoThread extends Thread {
                                 }
 
                                 if (System.currentTimeMillis() - startTime >= 1000) {
+
                                     Log.d(TAG, remote_address+" ===>  FPS : " + currentFPS+", birate : "+bitRate);
+
+                                    if(act.bShowFPS) {
+                                        updateFPS(currentFPS);
+                                    } else {
+                                        hiddingFPS();
+                                    }
+
                                     bitRate = 0;
                                     currentFPS = 0;
                                     startTime = System.currentTimeMillis();
@@ -224,6 +237,32 @@ public class VideoThread extends Thread {
 
         bIsEnd = true;
     }
+    boolean bTurnOnFPS = true;
+
+    void updateFPS(final int fps) {
+        act.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if(bTurnOnFPS) {
+                    act.fpsViews[index].setVisibility(View.VISIBLE);
+                    bTurnOnFPS = false;
+                }
+                act.fpsViews[index].setText("FPS:"+fps);
+            }
+        });
+    }
+
+    void hiddingFPS() {
+        act.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                    bTurnOnFPS = true;
+                    act.fpsViews[index].setVisibility(View.INVISIBLE);
+            }
+        });
+    }
+
+
     /// Decode -END- ///
 
     public class VideoDisplayThread extends Thread {
@@ -255,19 +294,9 @@ public class VideoThread extends Thread {
                         Log.d("libnice", "New format " + decoder.getOutputFormat());
                         break;
                     case MediaCodec.INFO_TRY_AGAIN_LATER:
-                        //Log.d("libnice", "INFO_TRY_AGAIN_LATER");
-                        //Log.d("DecodeActivity", "dequeueOutputBuffer timed out!");
                         break;
                     default:
-                        // ByteBuffer buffer = outputBuffers[outIndex];
-                        // Log.v("DecodeActivity", "We can't use this buffer but render it due to the API limit, " + buffer);
-//                        try {
-//                            sleep(30);
-//                        } catch (InterruptedException e) {
-//                            // TODO Auto-generated catch block
-//                            e.printStackTrace();
-//                        }
-                        //Log.d("libnice", "coming2");
+
                         this.decoder.releaseOutputBuffer(outIndex, bRender);
                         break;
                 }

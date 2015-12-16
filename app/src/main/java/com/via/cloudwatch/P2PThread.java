@@ -4,6 +4,9 @@ import android.content.Context;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.github.nkzawa.emitter.Emitter;
+import com.github.nkzawa.socketio.client.IO;
+import com.github.nkzawa.socketio.client.Socket;
 import com.utils.DefaultSetting;
 import com.utils.P2PCommunicationChannel;
 import com.utils.QueryToServer;
@@ -11,7 +14,11 @@ import com.utils.SendingLiveViewThread;
 import com.utils.SendingLocalVideoThread;
 import com.via.libnice;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.concurrent.Semaphore;
 
@@ -33,6 +40,7 @@ public class P2PThread extends Thread {
     public int cameraNumber = 0;
     public String[] cameraUrl = null;
     public String[] cameraNick = null;
+    private Socket mSocket;
 
     public void setCameraUrlAndNick(int number,String[] urls,String[] nicks) {
         cameraNumber = number;
@@ -44,11 +52,11 @@ public class P2PThread extends Thread {
         mNice = new libnice();
         mNice.init();
         mNice.createAgent(DefaultSetting.isReliableMode());
-        mNice.setStunAddress("74.125.204.127", 19302);
+        mNice.setStunAddress(DefaultSetting.stunServerIp, DefaultSetting.stunServerPort);
         mNice.setControllingMode(0);
-        mStreamId = mNice.addStream("HankWu", 5);
+        mStreamId = mNice.addStream(DefaultSetting.streamName, 5);
 
-        // Component 1 is using for message transfer
+        // If is the service mode, then only need to register 1 component which use for communicating
         int forComponentIndex = 1;
         msgChannel = new P2PCommunicationChannel(instance, mNice, mStreamId, forComponentIndex);
         mNice.registerReceiveCallback(msgChannel, mStreamId, forComponentIndex);
@@ -62,7 +70,7 @@ public class P2PThread extends Thread {
             @Override
             public void cbComponentStateChanged(final int i, final int i1, final int i2) {
                 if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready") || libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("failed")) {
-                    showToast("Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2]);
+                    showToast("D", "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2]);
                 }
             }
         });
@@ -73,65 +81,13 @@ public class P2PThread extends Thread {
     Runnable runTask = new Runnable() {
         @Override
         public void run() {
-            semph = null;
-            semph = new Semaphore(1);
-
+            for(int i=0;i<4;i++) {
+                stopSendingThread(mStreamId, i+1);
+            }
             mNice.restartStream(mStreamId);
             localSdp = mNice.getLocalSdp(mStreamId);
 
-            final String method = "Server";
-            try {
-                final String postParams = "register=" + URLEncoder.encode("TRUE", "UTF-8")
-                        + "&username=" + URLEncoder.encode("HankWu", "UTF-8")
-                        + "&SDP=" + URLEncoder.encode(localSdp, "UTF-8");
-                Log.d(TAG, "post method:" + method + ",postParams:" + postParams);
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        QueryToServer.excutePost(method, postParams);
-                    }
-                }).start();
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-                Log.d(TAG, "something wrong");
-            }
-
-            try {
-                semph.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while(true) {
-                        try {
-                            String postParameters = "register=" + URLEncoder.encode("FALSE", "UTF-8")
-                                    + "&username=" + URLEncoder.encode("HankWu", "UTF-8");
-                            Log.d(TAG, "post method:" + method + ",postParams:" + postParameters);
-                            remoteSdp = QueryToServer.excutePost(method, postParameters);
-                            if (remoteSdp.startsWith("NOBODY")) {
-
-                            } else {
-                                semph.release();
-                                break;
-                            }
-
-                        } catch (UnsupportedEncodingException e) {
-                            e.printStackTrace();
-                            Log.d(TAG, "something wrong");
-                        }
-                    }
-                }
-            }).start();
-            try {
-                semph.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            mNice.setRemoteSdp(remoteSdp);
-            showToast("set Remote Sdp lo.");
+            mSocket.emit("set local sdp", localSdp);
         }
     };
 
@@ -139,80 +95,95 @@ public class P2PThread extends Thread {
     @Override
     public void run() {
         super.run();
-        final String method = "Server";
-        try {
-            final String postParams = "register=" + URLEncoder.encode("TRUE", "UTF-8")
-                    + "&username=" + URLEncoder.encode("HankWu", "UTF-8")
-                    + "&SDP=" + URLEncoder.encode(localSdp, "UTF-8");
-            Log.d(TAG, "post method:" + method + ",postParams:" + postParams);
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    QueryToServer.excutePost(method, postParams);
-                }
-            }).start();
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-            Log.d(TAG, "something wrong");
-        }
 
         try {
-            semph.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            mSocket = IO.socket(DefaultSetting.serverUrl);
+            mSocket.on("response", onResponse);
+            mSocket.on("get sdp", onGetSdp);
+            mSocket.on("restart stream", onRestartStream);
+            mSocket.connect();
+            mSocket.emit("add user", DefaultSetting.sourcePeerUsername);
+            mSocket.emit("set local sdp",localSdp);
+        } catch (URISyntaxException e) {
+            showToast("I","Server is offline, please contact your application provider!");
+            throw new RuntimeException(e);
         }
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while(true) {
-                    try {
-                        String postParameters = "register=" + URLEncoder.encode("FALSE", "UTF-8")
-                                + "&username=" + URLEncoder.encode("HankWu", "UTF-8");
-                        Log.d(TAG, "post method:" + method + ",postParams:" + postParameters);
-                        remoteSdp = QueryToServer.excutePost(method, postParameters);
-                        if (remoteSdp.startsWith("NOBODY")) {
-
-                        } else {
-                            semph.release();
-                            break;
-                        }
-
-                    } catch (UnsupportedEncodingException e) {
-                        e.printStackTrace();
-                        Log.d(TAG, "something wrong");
-                    }
-                }
-            }
-        }).start();
-        try {
-            semph.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        mNice.setRemoteSdp(remoteSdp);
-        showToast("set Remote Sdp lo.");
-
-        semph.release();
     }
+
+
+    private Emitter.Listener onResponse = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            JSONObject data = (JSONObject) args[0];
+            String message;
+            try {
+                message = data.getString("message");
+                showToast("D","onRespone:" + message);
+
+            } catch (JSONException e) {
+                return;
+            }
+        }
+    };
+
+    private Emitter.Listener onGetSdp = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+
+            JSONObject data = (JSONObject) args[0];
+            String SDP;
+            try {
+                remoteSdp = data.getString("SDP");
+                mNice.setRemoteSdp(remoteSdp);
+                showToast("D","GetSDP:" + remoteSdp);
+            } catch (JSONException e) {
+                return;
+            }
+
+        }
+    };
+
+    private Emitter.Listener onRestartStream = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            showToast("I","on Restart Stream");
+            // stop all sending thread
+            for(int i=0;i<4;i++) {
+                stopSendingThread(mStreamId, i+1);
+            }
+            mNice.restartStream(mStreamId);
+            localSdp = mNice.getLocalSdp(mStreamId);
+            mSocket.emit("set local sdp", localSdp);
+        }
+    };
 
     void setContext(Context app_ctx) {
         application_ctx = app_ctx;
     }
 
-    void showToast(String msg) {
-        Log.d(TAG,msg);
-        if (application_ctx!=null) {
-            Toast.makeText(application_ctx,msg,Toast.LENGTH_SHORT).show();
+    public void showToast(String level,final String tmp) {
+
+        if(level.equalsIgnoreCase("D") && DefaultSetting.printLevelD) {
+            Log.d(DefaultSetting.WTAG+"/"+TAG, tmp);
+            if(application_ctx!=null)
+                Toast.makeText(application_ctx, tmp, Toast.LENGTH_SHORT).show();
         }
+
+        if(level.equalsIgnoreCase("I") && DefaultSetting.printLevelI) {
+            Log.d(DefaultSetting.WTAG+"/"+TAG, tmp);
+            if(application_ctx!=null)
+                Toast.makeText(application_ctx, tmp, Toast.LENGTH_SHORT).show();
+        }
+
     }
 
 
 
     public void createLocalVideoSendingThread(int Stream_id, int onChannel, String path) {
-        showToast("create Local Video Sending Thread");
+        showToast("D","create Local Video Sending Thread");
+
         if (sendingThreads[onChannel - 1] == null) {
-            showToast("create Sending Thread");
+            showToast("D","create Sending Thread");
             Log.d("hank", "Create sending Thread");
             sendingThreads[onChannel - 1] = new SendingLocalVideoThread(mNice, Stream_id, onChannel, path);
             sendingThreads[onChannel - 1].start();
@@ -221,7 +192,7 @@ public class P2PThread extends Thread {
 
     public void createLiveViewSendingThread(int Stream_id, int onChannel, String ip) {
         if (sendingLiveThreads[onChannel - 1] == null) {
-            showToast("create live view thread");
+            showToast("D","create live view thread");
             sendingLiveThreads[onChannel - 1] = new SendingLiveViewThread(mNice, Stream_id, onChannel, ip);
             sendingLiveThreads[onChannel - 1].start();
         }
@@ -237,7 +208,8 @@ public class P2PThread extends Thread {
                 e.printStackTrace();
             }
             sendingThreads[onChannel - 1] = null;
-            showToast("Stop sending Thread " + onChannel);
+            showToast("D","Stop sending Thread " + onChannel);
+
         }
 
         if (sendingLiveThreads[onChannel - 1] != null) {
@@ -249,7 +221,7 @@ public class P2PThread extends Thread {
                 e.printStackTrace();
             }
             sendingLiveThreads[onChannel - 1] = null;
-            showToast("Stop sending Thread " + onChannel);
+            showToast("D","Stop sending Thread " + onChannel);
         }
     }
 }

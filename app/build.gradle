@@ -28,4 +28,8 @@ dependencies {
     //compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'com.android.support:appcompat-v7:23.0.1'
     compile files('libs/libnice.jar')
+    compile ('com.github.nkzawa:socket.io-client:0.4.1'){
+        exclude group: 'org.json', module: 'json'
+    }
+
 }

@@ -14,6 +14,7 @@ import android.net.LocalSocketAddress;
 import android.util.Log;
 import android.view.SurfaceView;
 
+import com.via.cloudwatch.MainActivity;
 import com.via.libnice;
 
 public class VideoRecvCallback implements libnice.ReceiveCallback {
@@ -38,6 +39,8 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
     final static String TAG = "VideoRecvCallback";
     boolean bRender = true;
     String remote_address = "";
+    MainActivity act = null;
+    int index = -1;
 
     public void setRender(boolean b) {
         if(vt!=null) {
@@ -45,8 +48,10 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
         }
     }
 
-    public VideoRecvCallback(SurfaceView sv) {
+    public VideoRecvCallback(SurfaceView sv, MainActivity a, int i) {
         videosv = sv;
+        act = a;
+        index = i;
     }
 
     private void LOGD(String msg) {
@@ -122,8 +127,10 @@ public class VideoRecvCallback implements libnice.ReceiveCallback {
                     e.printStackTrace();
                 }
                 LOGD("Ready to play ("+mime+"), resolution "+w+"x"+"h");
-                vt = new VideoThread(videosv.getHolder().getSurface(), mime, w, h, sps, pps, is,remote_address);
+                vt = new VideoThread(act,index,videosv.getHolder().getSurface(), mime, w, h, sps, pps, is,remote_address);
                 vt.start();
+
+
             }
 
         } else {

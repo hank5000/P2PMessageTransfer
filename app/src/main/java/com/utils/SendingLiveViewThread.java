@@ -17,6 +17,7 @@ import java.nio.channels.ReadableByteChannel;
  */
 public class SendingLiveViewThread extends Thread {
     final static String TAG = "VIA-RTC SLVThread";
+    final static String WTAG = DefaultSetting.WTAG;
 
     boolean bStart = true;
     String ip_address = null;
@@ -66,7 +67,7 @@ public class SendingLiveViewThread extends Thread {
         try {
             this.sleep(1000);
         } catch (Exception e) {
-            Log.d(TAG, "Sleep fail");
+            Log.d(WTAG, "Sleep fail");
         }
         LocalSocket localSocket = new LocalSocket();
         try {
@@ -115,7 +116,7 @@ public class SendingLiveViewThread extends Thread {
             }
         } catch (IOException e) {
             e.printStackTrace();
-            Log.d(TAG, "connect fail");
+            Log.d(WTAG, "connect fail");
             sendVideoMsg("Video:Something Wrong");
             bStart = false;
         }
@@ -128,12 +129,10 @@ public class SendingLiveViewThread extends Thread {
             try {
 
                 naluSize = in.read(transferBuffer);
-                //transByteBuffer.clear();
-               // naluSize = readableByteChannel.read(transByteBuffer);
 
                 if (naluSize == -1) {
                     minus1Counter++;
-                    Log.d(TAG, "minus1Counter :" + minus1Counter);
+                    Log.d(TAG, "WRONG minus1Counter :" + minus1Counter);
 
                     if (minus1Counter > 30) {
                         bStart = false;
@@ -143,37 +142,34 @@ public class SendingLiveViewThread extends Thread {
             } catch (Exception e) {
                 Log.d(TAG, "something wrong at inputstream read : " + e);
                 bStart = false;
+                if (true) {
+                    try {
+                        sleep(3500);
+                        int Count = 0;
+                        while (Count <= 10) {
+                            try {
+                                localSocket = null;
+                                localSocket = new LocalSocket();
+                                localSocket.connect(new LocalSocketAddress(ip_address + "-video"));
+                                localSocket.setSoTimeout(500);
 
-//                if (true) {
-//
-//                    try {
-//                        sleep(3500);
-//                        int Count = 0;
-//                        while (Count <= 10) {
-//                            try {
-//                                localSocket = null;
-//                                localSocket = new LocalSocket();
-//                                localSocket.connect(new LocalSocketAddress(ip_address + "-video"));
-//                                localSocket.setSoTimeout(500);
-//
-//                                in = localSocket.getInputStream();
-//                                byte[] extra_data = new byte[512];
-//                                in.read(extra_data);
-//                                bStart = true;
-//                                break;
-//                            } catch (IOException eee) {
-//                                Count++;
-//                                sleep(500);
-//                            }
-//                        }
-//
-//
-//                    } catch (InterruptedException ee) {
-//
-//                    }
-//                }
+                                in = localSocket.getInputStream();
+                                byte[] extra_data = new byte[512];
+                                in.read(extra_data);
+                                bStart = true;
+                                break;
+                            } catch (IOException eee) {
+                                Count++;
+                                Log.d(WTAG,"local socket connect fail");
+                                sleep(500);
+                            }
+                        }
 
 
+                    } catch (InterruptedException ee) {
+
+                    }
+                }
             }
 
             if (naluSize > 0) {
@@ -182,8 +178,10 @@ public class SendingLiveViewThread extends Thread {
                 transByteBuffer.put(transferBuffer, 0, naluSize);
 
                 int sendSize = mAgent.sendDataDirectByIndex(transByteBuffer,naluSize,mCompId,mStreamId,mCompId);
+                //int sendSize = sendVideoData(transByteBuffer,naluSize);
+
                 if(sendSize==-1) {
-                    Log.d(TAG,"Something wrong when send buffer send Size = -1");
+                    Log.d(WTAG,"Something wrong when send buffer send Size = -1");
                 } else {
                     bitRate += sendSize;
 
@@ -198,11 +196,7 @@ public class SendingLiveViewThread extends Thread {
                         currentFPS = 0;
                         startTime = System.currentTimeMillis();
                     }
-
-
                 }
-
-
             }
         }
 
@@ -211,7 +205,7 @@ public class SendingLiveViewThread extends Thread {
                 localSocket.close();
                 break;
             } catch (Exception e) {
-                Log.d(TAG, "LocalSocket close fail");
+                Log.d(WTAG, "LocalSocket close fail");
             }
         }
 

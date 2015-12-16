@@ -3,6 +3,8 @@ package com.via.cloudwatch;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
@@ -22,18 +24,23 @@ import android.support.v4.widget.DrawerLayout;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 
+import com.github.nkzawa.emitter.Emitter;
+import com.github.nkzawa.socketio.client.IO;
+import com.github.nkzawa.socketio.client.Socket;
 import com.utils.CommunicationChannel;
 import com.utils.DefaultSetting;
 import com.utils.LiveViewInfo;
-import com.utils.QueryToServer;
 import com.utils.SendingLiveViewThread;
 import com.utils.SendingLocalVideoThread;
 import com.utils.VideoRecvCallback;
@@ -41,64 +48,115 @@ import com.utils.Item;
 import com.utils.ItemArrayAdapter;
 import com.via.libnice;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends ActionBarActivity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks {
 
+    MainActivity instance = this;
+    Handler handler = new Handler(); // The delay event handler.
+
     /**
      * Fragment managing the behaviors, interactions and presentation of the navigation drawer.
      */
+    // layout part
     private NavigationDrawerFragment mNavigationDrawerFragment;
-
     private CharSequence mTitle;
-
-    libnice mNice = null;
-    int mStreamId = -1;
-
     SurfaceView[] videoSurfaceViews = new SurfaceView[4];
     ImageButton[] addBtns = new ImageButton[4];
     ImageButton[] rmBtns = new ImageButton[4];
+    public TextView[] fpsViews = new TextView[4];
     RelativeLayout[] rLayouts = new RelativeLayout[4];
     LinearLayout[] lLayouts = new LinearLayout[2];
+    DisplayMetrics metrics = null;
+    Fragment currentFragment = null;
+    static int currentPosition = -1;
+    int fullScreenNumber = -1;
+    LinearLayout.LayoutParams hidingLinear = new LinearLayout.LayoutParams(0, 0, 0.0f);
+    LinearLayout.LayoutParams normalLinear = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT, 1.0f);
+
+    ProgressDialog mProgressBar = null;
+    // libnice part
+    libnice mNice = null;
+    int mStreamId = -1;
+    String localSdp = null;
+    String remoteSdp = null;
+    private final static String stunServerIp = DefaultSetting.stunServerIp;
+    private final static int stunServerPort = DefaultSetting.stunServerPort;
+    // peer to peer communicate channel
+    CommunicationChannel msgChannel = null;
+
+    // streaming receiver thread / streaming out thread
+    VideoRecvCallback[] videoRecvCallbacks = new VideoRecvCallback[4];
     SendingLocalVideoThread[] sendingThreads = new SendingLocalVideoThread[4];
     SendingLiveViewThread[] sendingLiveThreads = new SendingLiveViewThread[4];
-    VideoRecvCallback[] videoRecvCallbacks = new VideoRecvCallback[4];
-    DisplayMetrics metrics = null;
+
+    // Register Server part
+    private Socket mSocket;
+    private final static String serverUrl = DefaultSetting.serverUrl;
+    public String mSourcePeerUsername = DefaultSetting.sourcePeerUsername;
+    public String mFindPeerName = DefaultSetting.findPeerUsername;
+    public String mFindPeerPassword = DefaultSetting.findPeerPassword;
+
+    P2PThread p2pthread = null;
+    public boolean bShowFPS = true;
+
+    // status recording
     boolean[] isAllReadyTable = new boolean[5];
     boolean isAllReady = false;
-
     public ArrayList<LiveViewInfo> liveViewList = new ArrayList<LiveViewInfo>();
+    boolean bClient = false;
+    boolean bSource = false;
+    boolean bHiddingAllBtn = false;
+
+
+    int serverClickCounter = 0;
+    public String[] channelsState = new String[4];
+
+    // CloudWatch can using mediaplayer to play OV/RTSP and p2p stream out by itself
+    MediaPlayer[] mediaplayers = new MediaPlayer[4];
 
     boolean checkAllReady() {
         isAllReady = (isAllReadyTable[0] && isAllReadyTable[1] && isAllReadyTable[2] && isAllReadyTable[3] && isAllReadyTable[4]);
+
         if (isAllReady) {
-            Toast.makeText(MainActivity.this, "It has been connected!", Toast.LENGTH_LONG).show();
+            mProgressBar.dismiss();
+            onNavigationDrawerItemSelected(0);
+            showToast("I", "CONNECT!");
         }
-        if (bClient && isAllReady) {
+
+        if (isItAllReady()) {
             msgChannel.sendMessage(CommunicationChannel.REQUEST_LIVE_VIEW_INFO);
         }
 
         return isAllReady;
     }
 
+    boolean isItAllReady() {
+        return isAllReadyTable[0] && isAllReadyTable[1] && isAllReadyTable[2] && isAllReadyTable[3] && isAllReadyTable[4];
+    }
+
     @Override
     protected void onPause() {
-//        if (mediaplayer != null) {
-//            mediaplayer.release();
-//            mediaplayer = null;
-//        }
+        for(int i=0;i<4;i++) {
+            if (mediaplayers[i] != null) {
+                mediaplayers[i].release();
+                mediaplayers[i] = null;
+            }
+        }
+        if(mSocket!=null) {
+            mSocket.disconnect();
+        }
         super.onPause();
     }
 
-    boolean bClient = false;
-    boolean bSource = false;
-
     void initButtonAndSurfaceView() {
-
         rLayouts[0] = (RelativeLayout) findViewById(R.id.relate1);
         rLayouts[1] = (RelativeLayout) findViewById(R.id.relate2);
         rLayouts[2] = (RelativeLayout) findViewById(R.id.relate3);
@@ -106,7 +164,6 @@ public class MainActivity extends ActionBarActivity
 
         lLayouts[0] = (LinearLayout) findViewById(R.id.linear1);
         lLayouts[1] = (LinearLayout) findViewById(R.id.linear2);
-
 
         videoSurfaceViews[0] = (SurfaceView) findViewById(R.id.surfaceView1);
         videoSurfaceViews[1] = (SurfaceView) findViewById(R.id.surfaceView2);
@@ -123,23 +180,23 @@ public class MainActivity extends ActionBarActivity
         rmBtns[2] = (ImageButton) findViewById(R.id.rmBtn3);
         rmBtns[3] = (ImageButton) findViewById(R.id.rmBtn4);
 
+        fpsViews[0] = (TextView) findViewById(R.id.fpsView1);
+        fpsViews[1] = (TextView) findViewById(R.id.fpsView2);
+        fpsViews[2] = (TextView) findViewById(R.id.fpsView3);
+        fpsViews[3] = (TextView) findViewById(R.id.fpsView4);
 
         for (int i = 0; i < 4; i++) {
             addBtns[i].setOnClickListener(requestLiveView);
             rmBtns[i].setOnClickListener(requestLiveView);
             addBtns[i].setOnLongClickListener(fullScreenListener);
             rmBtns[i].setOnLongClickListener(fullScreenListener);
+            channelsState[i] = "STOP";
         }
 
+        mProgressBar = new ProgressDialog(instance);
+        mProgressBar.setTitle("Wait for Connection");
+        mProgressBar.setProgressStyle(ProgressDialog.STYLE_SPINNER);
     }
-
-    MainActivity instance = this;
-    String localSdp = null;
-    Handler handler = new Handler();
-    CommunicationChannel msgChannel = null;
-
-    P2PThread p2pthread = null;
-    int reliableMode = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -167,25 +224,25 @@ public class MainActivity extends ActionBarActivity
             mNice = new libnice();
             mNice.init();
             mNice.createAgent(DefaultSetting.isReliableMode());
-            mNice.setStunAddress("74.125.204.127", 19302);
+            mNice.setStunAddress(stunServerIp, stunServerPort);
             mNice.setControllingMode(0);
-            mStreamId = mNice.addStream("HankWu", 5);
+            mStreamId = mNice.addStream(DefaultSetting.streamName, 5);
 
             // Component 1 is using for message transfer
             int forComponentIndex = 1;
             msgChannel = new CommunicationChannel(instance, mNice, mStreamId, forComponentIndex);
             mNice.registerReceiveCallback(msgChannel, mStreamId, forComponentIndex);
             forComponentIndex = 2;
-            videoRecvCallbacks[0] = new VideoRecvCallback(videoSurfaceViews[0]);
+            videoRecvCallbacks[0] = new VideoRecvCallback(videoSurfaceViews[0],instance,0);
             mNice.registerReceiveCallback(videoRecvCallbacks[0], mStreamId, forComponentIndex);
             forComponentIndex = 3;
-            videoRecvCallbacks[1] = new VideoRecvCallback(videoSurfaceViews[1]);
+            videoRecvCallbacks[1] = new VideoRecvCallback(videoSurfaceViews[1],instance,1);
             mNice.registerReceiveCallback(videoRecvCallbacks[1], mStreamId, forComponentIndex);
             forComponentIndex = 4;
-            videoRecvCallbacks[2] = new VideoRecvCallback(videoSurfaceViews[2]);
+            videoRecvCallbacks[2] = new VideoRecvCallback(videoSurfaceViews[2],instance,2);
             mNice.registerReceiveCallback(videoRecvCallbacks[2], mStreamId, forComponentIndex);
             forComponentIndex = 5;
-            videoRecvCallbacks[3] = new VideoRecvCallback(videoSurfaceViews[3]);
+            videoRecvCallbacks[3] = new VideoRecvCallback(videoSurfaceViews[3],instance,3);
             mNice.registerReceiveCallback(videoRecvCallbacks[3], mStreamId, forComponentIndex);
 
             mNice.registerStateObserver(new libnice.StateObserver() {
@@ -194,7 +251,7 @@ public class MainActivity extends ActionBarActivity
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            //Toast.makeText(instance , "Candidate Gathering Done Stream["+i+"]", Toast.LENGTH_SHORT).show();
+
                         }
                     });
                 }
@@ -205,10 +262,14 @@ public class MainActivity extends ActionBarActivity
                         @Override
                         public void run() {
                             if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready") || libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("failed")) {
-                                Toast.makeText(instance, "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2], Toast.LENGTH_SHORT).show();
-                                if (bClient && libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready")) {
+                                showToast("D", "Stream[" + i + "]Component[" + i1 + "]:" + libnice.StateObserver.STATE_TABLE[i2]);
+                                if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("ready")) {
                                     isAllReadyTable[i1 - 1] = true;
                                     checkAllReady();
+                                }
+
+                                if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("failed")) {
+                                    showToast("I", "CONNECT TO SOURCE PEER FAIL, PLEASE TRY AGAIN");
                                 }
                             }
                         }
@@ -219,30 +280,150 @@ public class MainActivity extends ActionBarActivity
 
             // use for measure the size of AlertDialog.
             metrics = getResources().getDisplayMetrics();
-        } else {
 
+            try {
+                mSocket = IO.socket(serverUrl);
+                mSocket.on("response", onResponse);
+                mSocket.on("get sdp", onGetSdp);
+                mSocket.on("restart stream", onRestartStream);
+                mSocket.connect();
+            } catch (URISyntaxException e) {
+                showToast("I","Server is offline, please contact your application provider!");
+                throw new RuntimeException(e);
+            }
+        } else {
             p2pthread = new P2PThread();
             p2pthread.start();
         }
+
+        onNavigationDrawerItemSelected(2);
     }
 
-    Fragment currentFragment = null;
+
+    private Emitter.Listener onResponse = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            JSONObject data = (JSONObject) args[0];
+            String message;
+            try {
+                message = data.getString("message");
+                showToast("D","onRespone:" + message);
+                if(message.startsWith("OCCUPY")) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showOccupyMessage();
+                        }
+                    });
+                } else if (message.startsWith("UNDEFINED")) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showUndefinedMessage();
+                        }
+                    });
+                } else if (message.startsWith("OFFLINE")) {
+                    //showOfflineMessage();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showOfflineMessage();
+                        }
+                    });
+                }
+
+            } catch (JSONException e) {
+                return;
+            }
+        }
+    };
+
+    private Emitter.Listener onGetSdp = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+
+            JSONObject data = (JSONObject) args[0];
+            String SDP;
+            try {
+                SDP = data.getString("SDP");
+                mNice.setRemoteSdp(SDP);
+                showToast("D","GetSDP:" + SDP);
+            } catch (JSONException e) {
+                return;
+            }
+
+        }
+    };
+
+    private Emitter.Listener onRestartStream = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            showToast("I","on Restart Stream");
+            // stop all sending thread
+            for(int i=0;i<4;i++) {
+                stopSendingThread(mStreamId, i+1);
+            }
+            mNice.restartStream(mStreamId);
+            localSdp = mNice.getLocalSdp(mStreamId);
+            mSocket.emit("set local sdp", localSdp);
+        }
+    };
+
+
+    public void showSettingFragment() {
+
+    }
+
 
     @Override
     public void onNavigationDrawerItemSelected(int position) {
         // update the main content by replacing fragments
         FragmentManager fragmentManager = getSupportFragmentManager();
+        currentPosition = position;
+
+        if(bHiddingAllBtn) {
+            // get setting fragment value
+            bShowFPS = ((CheckBox)currentFragment.getView().findViewById(R.id.showFPSCheckBox)).isChecked();
+            mFindPeerName = ((EditText) currentFragment.getView().findViewById(R.id.usernameEditText)).getText().toString();
+            mFindPeerPassword = ((EditText) currentFragment.getView().findViewById(R.id.passwordEditText)).getText().toString();
+        }
+
         if (position == 0) {
             if (currentFragment != null) {
                 fragmentManager.beginTransaction().remove(currentFragment).commit();
                 mTitle = getString(R.string.title_section1);
             }
-        } else {
+
+            restoreAllBtn();
+        } else if (position == 1) {
+            if(DefaultSetting.bShowConnectMenu) {
+                if (currentFragment != null) {
+                    fragmentManager.beginTransaction().remove(currentFragment).commit();
+                    mTitle = getString(R.string.title_section1);
+                }
+                currentFragment = PlaceholderFragment.newInstance(position + 1);
+                fragmentManager.beginTransaction()
+                        .replace(R.id.container2, currentFragment)
+                        .commit();
+                restoreAllBtn();
+            } else {
+
+            }
+        } else if (position == 2) {
+            if (currentFragment != null) {
+                fragmentManager.beginTransaction().remove(currentFragment).commit();
+                mTitle = getString(R.string.title_section1);
+            }
             currentFragment = PlaceholderFragment.newInstance(position + 1);
+
             fragmentManager.beginTransaction()
-                    .replace(R.id.container2, currentFragment)
+                    .replace(R.id.container3, currentFragment)
                     .commit();
+
+            hiddingAllBtn();
         }
+
+
     }
 
     public void onSectionAttached(int number) {
@@ -259,8 +440,38 @@ public class MainActivity extends ActionBarActivity
         }
     }
 
-    MediaPlayer mediaplayer = null;
-    int serverClickCounter = 0;
+    public void hiddingAllBtn() {
+        if(!bHiddingAllBtn) {
+            bHiddingAllBtn = true;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < 4; i++) {
+                        rmBtns[i].setVisibility(View.INVISIBLE);
+                        addBtns[i].setVisibility(View.INVISIBLE);
+                    }
+                }
+            });
+        }
+    }
+
+    public void restoreAllBtn() {
+        if(bHiddingAllBtn) {
+            bHiddingAllBtn = false;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < 4; i++) {
+                        if (channelsState[i].equalsIgnoreCase("RUN")) {
+                            rmBtns[i].setVisibility(View.VISIBLE);
+                        } else {
+                            addBtns[i].setVisibility(View.VISIBLE);
+                        }
+                    }
+                }
+            });
+        }
+    }
 
     /**
      * A placeholder fragment containing a simple view.
@@ -290,30 +501,87 @@ public class MainActivity extends ActionBarActivity
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_main, container, false);
 
+            View rootView = null;
             final MainActivity tmp = (MainActivity) getActivity();
 
-            rootView.findViewById(R.id.connectServerBtn).setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if(tmp.serverClickCounter!=0) {
-                        tmp.mNice.restartStream(tmp.mStreamId);
-                        tmp.localSdp = tmp.mNice.getLocalSdp(tmp.mStreamId);
-                    }
+            if(tmp.currentPosition==1) {
+                rootView = inflater.inflate(R.layout.fragment_main, container, false);
 
-                    tmp.serverClickCounter++;
-                    new Thread(tmp.registerTask).start();
-                    tmp.handler.postDelayed(tmp.serverTask, 1000);
-                }
-            });
-            rootView.findViewById(R.id.connectClientBtn).setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    tmp.bClient = true;
-                    new Thread(tmp.clientTask).start();
-                }
-            });
+                rootView.findViewById(R.id.connectServerBtn).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if(tmp.serverClickCounter!=0) {
+                            tmp.mNice.restartStream(tmp.mStreamId);
+                            tmp.localSdp = tmp.mNice.getLocalSdp(tmp.mStreamId);
+                        }
+
+                        tmp.serverClickCounter++;
+                        //new Thread(tmp.registerTask).start();
+                        //tmp.handler.postDelayed(tmp.serverTask, 1000);
+                        tmp.mSocket.emit("add user",tmp.mSourcePeerUsername);
+                        tmp.mSocket.emit("set local sdp", tmp.localSdp);
+                        //TODO: Test use only
+                        String[] path = new String[4];
+                        path[0] = "ov://192.168.12.121:1000";
+                        path[1] = "ov://192.168.12.112:1000";
+                        path[2] = "ov://192.168.12.114:1000";
+                        path[3] = "";
+                        for(int i=0;i<4;i++) {
+                            if(!path[i].equals("")) {
+                                tmp.mediaplayers[i] = new MediaPlayer();
+                                try {
+                                    tmp.mediaplayers[i].setDataSource(path[i]);
+                                    tmp.mediaplayers[i].setDisplay(tmp.videoSurfaceViews[i].getHolder());
+                                    tmp.mediaplayers[i].prepare();
+                                    tmp.mediaplayers[i].start();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    }
+                });
+
+                rootView.findViewById(R.id.connectClientBtn).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        tmp.bClient = true;
+                        //new Thread(tmp.clientTask).start();
+                        tmp.showToast("D","get remote sdp");
+
+                        tmp.mSocket.emit("get remote sdp",tmp.mFindPeerName+":"+tmp.localSdp);
+                    }
+                });
+
+                rootView.findViewById(R.id.restartBtn).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        tmp.showToast("D","force restart source peer sdp");
+
+                        tmp.mSocket.emit("force get sdp",tmp.mFindPeerName);
+                    }
+                });
+
+            } else if (tmp.currentPosition==2) {
+                rootView = inflater.inflate(R.layout.fragment_setting, container, false);
+                EditText usernameET = ((EditText) rootView.findViewById(R.id.usernameEditText));
+                usernameET.setText(tmp.mFindPeerName);
+                EditText passwordET = ((EditText) rootView.findViewById(R.id.passwordEditText));
+                passwordET.setText(tmp.mFindPeerPassword);
+                CheckBox showFPSCB = (CheckBox) rootView.findViewById(R.id.showFPSCheckBox);
+                showFPSCB.setChecked(tmp.bShowFPS);
+
+                rootView.findViewById(R.id.saveBtn).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+
+                        tmp.mSocket.emit("get remote sdp",tmp.mFindPeerName+":"+tmp.localSdp);
+                        tmp.mProgressBar.show();
+                        tmp.bClient = true;
+                    }
+                });
+            }
 
             return rootView;
         }
@@ -326,76 +594,6 @@ public class MainActivity extends ActionBarActivity
         }
     }
 
-    String remoteSdp = null;
-
-    Runnable serverTask = new Runnable() {
-        @Override
-        public void run() {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        String method = "Server";
-                        String postParameters = "register=" + URLEncoder.encode("FALSE", "UTF-8")
-                                + "&username=" + URLEncoder.encode("HankWu", "UTF-8");
-                        String getSdp = QueryToServer.excutePost(method, postParameters);
-                        if (getSdp.startsWith("NOBODY")) {
-                            //showToast("No Remote SDP");
-                            handler.postDelayed(serverTask, 1000);
-
-                        } else {
-                            showToast("Get remote SDP " + getSdp);
-                            remoteSdp = getSdp;
-                            handler.removeCallbacks(serverTask);
-                            handler.post(setSdpTask);
-                        }
-                    } catch (UnsupportedEncodingException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-                }
-            }).start();
-        }
-    };
-
-    Runnable clientTask = new Runnable() {
-        @Override
-        public void run() {
-            try {
-                String method = "Client";
-                String findusername = "HankWu";
-                String postParameters = "findusername=" + URLEncoder.encode(findusername, "UTF-8") + "&SDP=" + URLEncoder.encode(localSdp, "UTF-8");
-                String getSdp = QueryToServer.excutePost(method, postParameters);
-                if (getSdp.equals("OFFLINE")) {
-                    showToast(findusername + "is OFFLINE");
-                } else {
-                    showToast("Get remote SDP " + getSdp);
-                    remoteSdp = getSdp;
-                    handler.post(setSdpTask);
-                }
-            } catch (UnsupportedEncodingException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
-    };
-
-    Runnable registerTask = new Runnable() {
-        @Override
-        public void run() {
-            String method = "Server";
-            String postParams;
-            try {
-                postParams = "register=" + URLEncoder.encode("TRUE", "UTF-8")
-                        + "&username=" + URLEncoder.encode("HankWu", "UTF-8")
-                        + "&SDP=" + URLEncoder.encode(localSdp, "UTF-8");
-                QueryToServer.excutePost(method, postParams);
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
-        }
-    };
-
     Runnable setSdpTask = new Runnable() {
         @Override
         public void run() {
@@ -403,21 +601,30 @@ public class MainActivity extends ActionBarActivity
         }
     };
 
-    public void showToast(final String tmp) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(instance, tmp, Toast.LENGTH_SHORT).show();
-            }
-        });
+    public void showToast(String level,final String tmp) {
+
+        if(level.equalsIgnoreCase("D") && DefaultSetting.printLevelD) {
+            Log.d(DefaultSetting.WTAG,tmp);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(instance, tmp, Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        if(level.equalsIgnoreCase("I") && DefaultSetting.printLevelI) {
+            Log.d(DefaultSetting.WTAG,tmp);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(instance, tmp, Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
     }
 
-    final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
-
-    int fullScreenNumber = -1;
-
-    LinearLayout.LayoutParams hidingLinear = new LinearLayout.LayoutParams(0, 0, 0.0f);
-    LinearLayout.LayoutParams normalLinear = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT, 1.0f);
     View.OnLongClickListener fullScreenListener = new View.OnLongClickListener() {
         public boolean onLongClick(View v) {
             int number = -1;
@@ -487,11 +694,10 @@ public class MainActivity extends ActionBarActivity
     View.OnClickListener requestLiveView = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            if (!isAllReady) {
+            if (!isItAllReady()) {
                 Toast.makeText(instance, "please wait for connect", Toast.LENGTH_SHORT).show();
                 return;
             }
-
 
             String msg = "";
             String state = "";
@@ -542,21 +748,22 @@ public class MainActivity extends ActionBarActivity
         }
     };
 
-
     void changeState(String state, int number) {
         if (state.equalsIgnoreCase("RUN")) {
             addBtns[number].setVisibility(View.INVISIBLE);
             rmBtns[number].setVisibility(View.VISIBLE);
+            channelsState[number] = "RUN";
         } else if (state.equalsIgnoreCase("STOP")) {
             addBtns[number].setVisibility(View.VISIBLE);
             rmBtns[number].setVisibility(View.INVISIBLE);
+            fpsViews[number].setVisibility(View.INVISIBLE);
+            channelsState[number] = "STOP";
         }
     }
 
     public void createLocalVideoSendingThread(int Stream_id, int onChannel, String path) {
         if (sendingThreads[onChannel - 1] == null) {
-            showToast("create Sending Thread");
-            Log.d("hank", "Create sending Thread, path : "+path+",on Channel :"+onChannel);
+            showToast("D", "Create sending Thread, path : " + path + ",on Channel :" + onChannel);
             sendingThreads[onChannel - 1] = new SendingLocalVideoThread(mNice, Stream_id, onChannel, path);
             sendingThreads[onChannel - 1].start();
         }
@@ -564,7 +771,7 @@ public class MainActivity extends ActionBarActivity
 
     public void createLiveViewSendingThread(int Stream_id, int onChannel, String ip) {
         if (sendingLiveThreads[onChannel - 1] == null) {
-            showToast("create live view thread");
+            showToast("D","create live view thread");
             sendingLiveThreads[onChannel - 1] = new SendingLiveViewThread(mNice, Stream_id, onChannel, ip);
             sendingLiveThreads[onChannel - 1].start();
         }
@@ -581,7 +788,7 @@ public class MainActivity extends ActionBarActivity
                 e.printStackTrace();
             }
             sendingThreads[onChannel - 1] = null;
-            showToast("Stop sending Thread " + onChannel);
+            showToast("D","Stop sending Thread " + onChannel);
         }
 
         if (sendingLiveThreads[onChannel - 1] != null) {
@@ -593,7 +800,7 @@ public class MainActivity extends ActionBarActivity
                 e.printStackTrace();
             }
             sendingLiveThreads[onChannel - 1] = null;
-            showToast("Stop sending Thread " + onChannel);
+            showToast("D","Stop sending Thread " + onChannel);
         }
     }
 
@@ -706,9 +913,8 @@ public class MainActivity extends ActionBarActivity
         } else {
             Toast.makeText(MainActivity.this, "It has no Live View", Toast.LENGTH_SHORT).show();
         }
-
-
     }
+
 
     public boolean setLiveViewStatusByName(String n,String s) {
         for(int i=0;i<liveViewList.size();i++) {
@@ -731,4 +937,69 @@ public class MainActivity extends ActionBarActivity
     }
 
 
+    void showOccupyMessage() {
+        mProgressBar.dismiss();
+        //final View v = View.inflate(this, R.layout.message, null);
+        new AlertDialog.Builder(this)
+                .setTitle("Source Peer is occupied")
+                .setMessage("Do you wanna force reset source peer and try again?")
+                .setPositiveButton("YES", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        mSocket.emit("force get sdp", mFindPeerName);
+                        mProgressBar.show();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                mNice.restartStream(mStreamId);
+                                localSdp = mNice.getLocalSdp(mStreamId);
+                                mSocket.emit("get remote sdp",mFindPeerName+":"+localSdp);
+                            }
+                        },2000);
+                    }
+                })
+                .setNegativeButton("NO", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                }).show();
+    }
+    void showUndefinedMessage() {
+        mProgressBar.dismiss();
+        //final View v = View.inflate(this, R.layout.message, null);
+        new AlertDialog.Builder(this)
+                .setTitle("Source Peer status is undefined")
+                .setMessage("Do you wanna force reset source peer and try again?")
+                .setPositiveButton("YES", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        mSocket.emit("force get sdp", mFindPeerName);
+                        mProgressBar.show();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                mNice.restartStream(mStreamId);
+                                localSdp = mNice.getLocalSdp(mStreamId);
+                                mSocket.emit("get remote sdp",mFindPeerName+":"+localSdp);
+                            }
+                        },2000);
+
+                    }
+                })
+                .setNegativeButton("NO", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                }).show();
+    }
+    void showOfflineMessage() {
+        mProgressBar.dismiss();
+
+        new AlertDialog.Builder(this)
+                .setTitle("Source Peer is offline")
+                .setMessage("You need to check your source peer network status")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        //mSocket.emit("force get sdp", mFindPeerName);
+                    }
+                }).show();
+    }
 }
