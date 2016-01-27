@@ -11,7 +11,7 @@ public class DefaultSetting {
     // stun server
     public final static String stunServerIp = "74.125.204.127";
     public final static int stunServerPort = 19302;
-    //
+
     public final static String sourcePeerUsername = "DefaultUsername";
     public final static String sourcePassword     = "DefaultPassWord";
     public final static String findPeerUsername   = sourcePeerUsername;

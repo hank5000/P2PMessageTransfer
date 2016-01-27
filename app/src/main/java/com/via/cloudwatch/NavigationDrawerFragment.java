@@ -1,5 +1,6 @@
 package com.via.cloudwatch;
 
+import android.os.Build;
 import android.support.v7.app.ActionBarActivity;
 import android.app.Activity;
 import android.support.v7.app.ActionBar;
@@ -11,6 +12,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -100,8 +102,7 @@ public class NavigationDrawerFragment extends Fragment {
             }
         });
 
-
-        if(DefaultSetting.bShowConnectMenu) {
+        if(DefaultSetting.bShowConnectMenu || getDeviceName().contains("Elite1000") || getDeviceName().contains("elite1000") )  {
             mDrawerListView.setAdapter(new ArrayAdapter<String>(
                     getActivity(),
                     R.layout.simple_list_item,
@@ -260,4 +261,29 @@ public class NavigationDrawerFragment extends Fragment {
          */
         void onNavigationDrawerItemSelected(int position);
     }
+
+
+    public String getDeviceName() {
+        String manufacturer = Build.MANUFACTURER;
+        String model = Build.MODEL;
+        if (model.startsWith(manufacturer)) {
+            return capitalize(model);
+        } else {
+            return capitalize(manufacturer) + " " + model;
+        }
+    }
+
+
+    private String capitalize(String s) {
+        if (s == null || s.length() == 0) {
+            return "";
+        }
+        char first = s.charAt(0);
+        if (Character.isUpperCase(first)) {
+            return s;
+        } else {
+            return Character.toUpperCase(first) + s.substring(1);
+        }
+    }
+
 }

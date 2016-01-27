@@ -79,7 +79,6 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
             //Test use only, the main function is implemented in P2PCommuncationChannel, that is
             //work in Service.
             sendMessage(FEEDBACK_LIVE_VIEW_INFO + ":" + "OV112:OV114:OV121:");
-
         }
 
         if (inputMsg.startsWith(FEEDBACK_LIVE_VIEW_INFO)) {
@@ -98,8 +97,6 @@ public class CommunicationChannel implements libnice.ReceiveCallback {
             activity.showToast("D",inputMsg);
 
         }
-
-
     }
 
 

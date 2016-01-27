@@ -6,6 +6,7 @@ import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v4.app.Fragment;
@@ -29,7 +30,6 @@ import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -121,7 +121,7 @@ public class MainActivity extends ActionBarActivity
 
     // CloudWatch can using mediaplayer to play OV/RTSP and p2p stream out by itself
     MediaPlayer[] mediaplayers = new MediaPlayer[4];
-
+    boolean bLogin = false;
     boolean checkAllReady() {
         isAllReady = (isAllReadyTable[0] && isAllReadyTable[1] && isAllReadyTable[2] && isAllReadyTable[3] && isAllReadyTable[4]);
 
@@ -129,6 +129,7 @@ public class MainActivity extends ActionBarActivity
             mProgressBar.dismiss();
             onNavigationDrawerItemSelected(0);
             showToast("I", "CONNECT!");
+            bLogin = true;
         }
 
         if (isItAllReady()) {
@@ -140,6 +141,12 @@ public class MainActivity extends ActionBarActivity
 
     boolean isItAllReady() {
         return isAllReadyTable[0] && isAllReadyTable[1] && isAllReadyTable[2] && isAllReadyTable[3] && isAllReadyTable[4];
+    }
+
+    void disableReady() {
+        for(int i=0;i<isAllReadyTable.length;i++) {
+            isAllReadyTable[i] = false;
+        }
     }
 
     @Override
@@ -270,6 +277,11 @@ public class MainActivity extends ActionBarActivity
 
                                 if (libnice.StateObserver.STATE_TABLE[i2].equalsIgnoreCase("failed")) {
                                     showToast("I", "CONNECT TO SOURCE PEER FAIL, PLEASE TRY AGAIN");
+
+                                    if(tmpUET!=null)
+                                        tmpUET.setEnabled(true);
+                                    if(tmpPET!=null)
+                                        tmpPET.setEnabled(true);
                                 }
                             }
                         }
@@ -396,7 +408,7 @@ public class MainActivity extends ActionBarActivity
 
             restoreAllBtn();
         } else if (position == 1) {
-            if(DefaultSetting.bShowConnectMenu) {
+            if(DefaultSetting.bShowConnectMenu || getDeviceName().contains("Elite1000") || getDeviceName().contains("elite1000")) {
                 if (currentFragment != null) {
                     fragmentManager.beginTransaction().remove(currentFragment).commit();
                     mTitle = getString(R.string.title_section1);
@@ -472,6 +484,9 @@ public class MainActivity extends ActionBarActivity
             });
         }
     }
+
+    static TextView tmpUET = null;
+    static TextView tmpPET = null;
 
     /**
      * A placeholder fragment containing a simple view.
@@ -572,13 +587,48 @@ public class MainActivity extends ActionBarActivity
                 CheckBox showFPSCB = (CheckBox) rootView.findViewById(R.id.showFPSCheckBox);
                 showFPSCB.setChecked(tmp.bShowFPS);
 
+                if(tmp.bLogin) {
+//                    usernameET.setKeyListener(null);
+//                    passwordET.setKeyListener(null);
+                    usernameET.setEnabled(false);
+                    passwordET.setEnabled(false);
+                    tmpUET = usernameET;
+                    tmpPET = passwordET;
+
+                } else {
+                    usernameET.setEnabled(true);
+                    passwordET.setEnabled(true);
+                }
+
+                final EditText uET = usernameET;
+                final EditText pET = passwordET;
+
                 rootView.findViewById(R.id.saveBtn).setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
 
-                        tmp.mSocket.emit("get remote sdp",tmp.mFindPeerName+":"+tmp.localSdp);
+                        tmp.mSocket.emit("get remote sdp", tmp.mFindPeerName + ":" + tmp.localSdp);
                         tmp.mProgressBar.show();
                         tmp.bClient = true;
+                        uET.setEnabled(false);
+                        pET.setEnabled(false);
+                    }
+                });
+
+
+                rootView.findViewById(R.id.logoutBtn).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        tmp.bLogin = false;
+                        tmp.isAllReady = false;
+                        for(int i=0;i<5;i++) {
+                            tmp.isAllReadyTable[i] = false;
+                        }
+                        tmp.stopAllRecv();
+                        tmp.resetNiceAgent();
+
+                        uET.setEnabled(true);
+                        pET.setEnabled(true);
                     }
                 });
             }
@@ -800,7 +850,7 @@ public class MainActivity extends ActionBarActivity
                 e.printStackTrace();
             }
             sendingLiveThreads[onChannel - 1] = null;
-            showToast("D","Stop sending Thread " + onChannel);
+            showToast("D", "Stop sending Thread " + onChannel);
         }
     }
 
@@ -809,11 +859,13 @@ public class MainActivity extends ActionBarActivity
         final AlertDialog.Builder MyAlertDialog = new AlertDialog.Builder(this);
         MyAlertDialog.setView(v);
         final Dialog dialog = MyAlertDialog.show();
+        //v.findViewById(R.id.menu_play).setVisibility(View.INVISIBLE);
+
         float density = metrics.density;
         if(density<1.0) {
             density = 1;
         }
-        dialog.getWindow().setLayout((int) density * 330, (int) density * 120);
+        //dialog.getWindow().setLayout(300, 120);
         View.OnClickListener tmpListener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -825,12 +877,12 @@ public class MainActivity extends ActionBarActivity
                         showLiveViewDialog(onChannel);
 
                         break;
-                    case R.id.menu_play:
-                        Toast.makeText(instance, "play on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
-                        state = "RUN";
-                        msgChannel.sendMessage("VIDEO:" + state + ":" + onChannel + ":"+"/mnt/sata/test1.mp4");
-
-                        break;
+//                    case R.id.menu_play:
+//                        Toast.makeText(instance, "play on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
+//                        state = "RUN";
+//                        msgChannel.sendMessage("VIDEO:" + state + ":" + onChannel + ":"+"/mnt/sata/test1.mp4");
+//
+//                        break;
                     case R.id.menu_remove:
                         Toast.makeText(instance, "remove on [" + onChannel + "]", Toast.LENGTH_SHORT).show();
                         state = "STOP";
@@ -858,9 +910,46 @@ public class MainActivity extends ActionBarActivity
                 dialog.dismiss();
             }
         };
-        v.findViewById(R.id.menu_play).setOnClickListener(tmpListener);
-        v.findViewById(R.id.menu_camera).setOnClickListener(tmpListener);
+        //v.findViewById(R.id.menu_play).setOnClickListener(tmpListener);
+        if(videoRecvCallbacks[onChannel-1].isStart()) {
+            v.findViewById(R.id.menu_camera).setAlpha(0.3f);
+        } else {
+            v.findViewById(R.id.menu_camera).setOnClickListener(tmpListener);
+        }
+
         v.findViewById(R.id.menu_remove).setOnClickListener(tmpListener);
+    }
+
+
+    boolean checkVideoChannelStart(int index) {
+        if(videoRecvCallbacks[index-1].isStart()) {
+            return true;
+        }
+        return false;
+    }
+
+    void stopVideoOnChannel(final int index){
+        videoRecvCallbacks[index-1].setStop();
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                changeState("STOP", index - 1);
+            }
+        });
+    }
+
+    void stopAllRecv() {
+        for(int i=1;i<=4;i++) {
+            if(checkVideoChannelStart(i)) {
+                stopVideoOnChannel(i);
+            }
+        }
+    }
+
+    void resetNiceAgent() {
+        mNice.restartStream(mStreamId);
+        localSdp = mNice.getLocalSdp(mStreamId);
+        remoteSdp = "";
     }
 
 
@@ -889,9 +978,8 @@ public class MainActivity extends ActionBarActivity
                     .setView(v);
 
             final AlertDialog dialog1 = MyAlertDialog.create();
-
             dialog1.show();
-            dialog1.getWindow().setLayout((int) metrics.density * liveViewList.size() * 110 + 50, (int) metrics.density * 220 + 50);
+            //dialog1.getWindow().setLayout((int) metrics.density * liveViewList.size() * 110 + 50, (int) metrics.density * 220 + 50);
 
             gv.setOnItemLongClickListener(new GridView.OnItemLongClickListener() {
                 public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
@@ -950,6 +1038,7 @@ public class MainActivity extends ActionBarActivity
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
+                                disableReady();
                                 mNice.restartStream(mStreamId);
                                 localSdp = mNice.getLocalSdp(mStreamId);
                                 mSocket.emit("get remote sdp",mFindPeerName+":"+localSdp);
@@ -1002,4 +1091,29 @@ public class MainActivity extends ActionBarActivity
                     }
                 }).show();
     }
+
+
+    public String getDeviceName() {
+        String manufacturer = Build.MANUFACTURER;
+        String model = Build.MODEL;
+        if (model.startsWith(manufacturer)) {
+            return capitalize(model);
+        } else {
+            return capitalize(manufacturer) + " " + model;
+        }
+    }
+
+
+    private String capitalize(String s) {
+        if (s == null || s.length() == 0) {
+            return "";
+        }
+        char first = s.charAt(0);
+        if (Character.isUpperCase(first)) {
+            return s;
+        } else {
+            return Character.toUpperCase(first) + s.substring(1);
+        }
+    }
+
 }

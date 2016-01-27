@@ -9,7 +9,6 @@ import com.github.nkzawa.socketio.client.IO;
 import com.github.nkzawa.socketio.client.Socket;
 import com.utils.DefaultSetting;
 import com.utils.P2PCommunicationChannel;
-import com.utils.QueryToServer;
 import com.utils.SendingLiveViewThread;
 import com.utils.SendingLocalVideoThread;
 import com.via.libnice;
@@ -17,10 +16,7 @@ import com.via.libnice;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.util.concurrent.Semaphore;
 
 /**
  * Created by HankWu_Office on 2015/11/26.
@@ -32,7 +28,6 @@ public class P2PThread extends Thread {
     String TAG = "P2PThread";
     String remoteSdp = "";
     String localSdp = "";
-    Semaphore semph = new Semaphore(1);
     Context application_ctx = null;
     SendingLocalVideoThread[] sendingThreads = new SendingLocalVideoThread[4];
     SendingLiveViewThread[] sendingLiveThreads = new SendingLiveViewThread[4];

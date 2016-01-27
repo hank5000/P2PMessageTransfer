@@ -1,41 +1,36 @@
 <!-- As the main content view, the view below consumes the entire
      space available using match_parent in both dimensions. -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="300dp"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="#A0FFFFFF"
-    android:orientation="vertical">
+    android:background="#00FFFFFF">
 
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:layout_width="300dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="#A0FFFFFF"
-        android:orientation="horizontal">
+        android:background="#00FFFFFF"
+        android:orientation="horizontal"
+        android:layout_centerHorizontal="true">
 
         <ImageButton
             android:id="@+id/menu_camera"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
             android:background="@drawable/buttonback1"
             android:padding="5dp"
+            android:layout_weight="1"
+
             android:src="@drawable/camera_blue" />
 
         <ImageButton
-            android:id="@+id/menu_play"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:background="@drawable/buttonback1"
-            android:padding="5dp"
-            android:src="@drawable/playback_blue" />
-
-        <ImageButton
             android:id="@+id/menu_remove"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
             android:background="@drawable/buttonback1"
             android:padding="5dp"
+            android:layout_weight="1"
             android:src="@drawable/delete_blue" />
     </LinearLayout>
 
-</LinearLayout>
+</RelativeLayout>

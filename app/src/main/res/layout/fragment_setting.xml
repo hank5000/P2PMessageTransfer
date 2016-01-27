@@ -78,13 +78,31 @@
             android:layout_marginTop="5dp"/>
 
 
+        <LinearLayout android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:orientation="horizontal"
+            android:layout_gravity="center_horizontal"
+            >
+
         <Button android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Save and Connect"
+            android:text="Log In"
             android:id="@+id/saveBtn"
             android:checked="false"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="10dp"/>
+
+        <Button android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Log Out"
+            android:layout_marginLeft="10dp"
+            android:id="@+id/logoutBtn"
+            android:checked="false"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"/>
+
+
+        </LinearLayout>>
 
         <LinearLayout android:layout_height="wrap_content"
         android:layout_width="wrap_content"
