@@ -607,11 +607,33 @@ public class MainActivity extends ActionBarActivity
                     @Override
                     public void onClick(View v) {
 
-                        tmp.mSocket.emit("get remote sdp", tmp.mFindPeerName + ":" + tmp.localSdp);
-                        tmp.mProgressBar.show();
+//                        tmp.mSocket.emit("force get sdp", tmp.mFindPeerName);
+//                        tmp.mProgressBar.show();
+//                        tmp.handler.postDelayed(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                               tmp.mSocket.emit("get remote sdp",tmp.mFindPeerName+":"+tmp.localSdp);
+//                            }
+//                        },2000);
+                        tmp.mSocket.emit("force get sdp", tmp.mFindPeerName);
                         tmp.bClient = true;
                         uET.setEnabled(false);
                         pET.setEnabled(false);
+                        tmp.mProgressBar.show();
+
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    Thread.sleep(2000);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                tmp.mSocket.emit("get remote sdp", tmp.mFindPeerName + ":" + tmp.localSdp);
+
+                            }
+                        }).start();
+
                     }
                 });
 
@@ -821,7 +843,7 @@ public class MainActivity extends ActionBarActivity
 
     public void createLiveViewSendingThread(int Stream_id, int onChannel, String ip) {
         if (sendingLiveThreads[onChannel - 1] == null) {
-            showToast("D","create live view thread");
+            showToast("D", "create live view thread");
             sendingLiveThreads[onChannel - 1] = new SendingLiveViewThread(mNice, Stream_id, onChannel, ip);
             sendingLiveThreads[onChannel - 1].start();
         }
@@ -981,8 +1003,10 @@ public class MainActivity extends ActionBarActivity
             dialog1.show();
             //dialog1.getWindow().setLayout((int) metrics.density * liveViewList.size() * 110 + 50, (int) metrics.density * 220 + 50);
 
-            gv.setOnItemLongClickListener(new GridView.OnItemLongClickListener() {
-                public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+
+            gv.setOnItemClickListener(new GridView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                     msgChannel.sendMessage("LiveView:RUN:"+finalItem.get(position).getName()+":"+channelIndex);
                     setLiveViewStatusByName(finalItem.get(position).getName(), channelIndex + "");
                     dialog1.dismiss();
@@ -993,11 +1017,28 @@ public class MainActivity extends ActionBarActivity
                             changeState(st, channelIndex - 1);
                         }
                     });
-
-
-                    return true;
                 }
             });
+
+//
+//
+//            gv.setOnItemLongClickListener(new GridView.OnItemLongClickListener() {
+//                public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+//                    msgChannel.sendMessage("LiveView:RUN:"+finalItem.get(position).getName()+":"+channelIndex);
+//                    setLiveViewStatusByName(finalItem.get(position).getName(), channelIndex + "");
+//                    dialog1.dismiss();
+//                    final String st = "RUN";
+//                    runOnUiThread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            changeState(st, channelIndex - 1);
+//                        }
+//                    });
+//
+//
+//                    return true;
+//                }
+//            });
         } else {
             Toast.makeText(MainActivity.this, "It has no Live View", Toast.LENGTH_SHORT).show();
         }
