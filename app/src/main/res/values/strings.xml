@@ -3,7 +3,7 @@
 
     <string name="title_section1">LIVE VIEW</string>
     <string name="title_section2">LOGIN</string>
-    <string name="title_section3">SETTING</string>
+    <string name="title_section3">MENU</string>
 
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>

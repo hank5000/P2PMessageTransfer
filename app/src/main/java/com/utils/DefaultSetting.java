@@ -7,10 +7,10 @@ public class DefaultSetting {
     final static int reliableMode = 0;
     final static public String WTAG = "VIA-CloudWatch/W";
     // register server / signaling server
-    public final static String serverUrl = "http://122.147.15.216:3000/";
+    public final static String serverUrl = "http://122.147.15.220:3000/";
     // stun server
-    public final static String stunServerIp = "74.125.204.127";
-    public final static int stunServerPort = 19302;
+    public final static String stunServerIp = "203.183.172.196";
+    public final static int stunServerPort = 3478;
 
     public final static String sourcePeerUsername = "DefaultUsername";
     public final static String sourcePassword     = "DefaultPassWord";
