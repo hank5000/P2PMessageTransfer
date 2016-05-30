@@ -606,7 +606,9 @@ public class MainActivity extends ActionBarActivity
                 rootView.findViewById(R.id.saveBtn).setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-
+                        tmp.mFindPeerName = uET.getText().toString();
+                        tmp.mSourcePeerUsername = tmp.mFindPeerName;
+                        tmp.mFindPeerPassword = pET.getText().toString();
 //                        tmp.mSocket.emit("force get sdp", tmp.mFindPeerName);
 //                        tmp.mProgressBar.show();
 //                        tmp.handler.postDelayed(new Runnable() {
